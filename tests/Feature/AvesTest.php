@@ -49,11 +49,15 @@ class AvesTest extends TestCase
                     'sexos' => [
                         '*' => ['id', 'nombre'],
                     ],
+                    'propositos' => [
+                        '*' => ['id', 'nombre', 'activa'],
+                    ],
                 ],
             ]);
 
         $this->assertCount(3, $response->json('data.especies'));
         $this->assertCount(3, $response->json('data.sexos'));
+        $this->assertCount(5, $response->json('data.propositos'));
     }
 
     public function test_puede_listar_aves_con_paginacion_y_estadisticas(): void

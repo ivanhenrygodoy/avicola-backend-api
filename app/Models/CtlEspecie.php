@@ -34,3 +34,4 @@ class CtlEspecie extends Model
         return $this->hasMany(Ave::class, 'id_especie');
     }
 }
+

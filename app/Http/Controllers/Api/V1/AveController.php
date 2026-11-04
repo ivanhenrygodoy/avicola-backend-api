@@ -8,6 +8,7 @@ use App\Http\Requests\Aves\TrasladarAveRequest;
 use App\Http\Requests\Aves\UpdateAveRequest;
 use App\Models\Ave;
 use App\Models\CtlEspecie;
+use App\Models\CtlProposito;
 use App\Models\CtlSexo;
 use App\Models\Division;
 use App\Models\MovimientoAve;
@@ -20,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 class AveController extends Controller
 {
     /**
-     * Retorna los catálogos requeridos para formularios de aves (ctl_especie, ctl_sexo).
+     * Retorna los catálogos requeridos para formularios de aves (ctl_especie, ctl_sexo, ctl_proposito).
      */
     public function catalogos(): JsonResponse
     {
@@ -29,6 +30,7 @@ class AveController extends Controller
             'data' => [
                 'especies' => CtlEspecie::where('activa', true)->orderBy('id')->get(),
                 'sexos' => CtlSexo::orderBy('id')->get(),
+                'propositos' => CtlProposito::where('activa', true)->orderBy('id')->get(),
             ],
         ]);
     }
@@ -38,7 +40,7 @@ class AveController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Ave::with(['division.casita', 'especie', 'sexo']);
+        $query = Ave::with(['division.casita', 'especie', 'sexo', 'proposito']);
 
         // Filtro por término de búsqueda (código o nombre)
         if ($request->filled('search')) {
@@ -148,7 +150,7 @@ class AveController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Ave registrada exitosamente.',
-                'data' => $ave->load(['division.casita', 'especie', 'sexo']),
+                'data' => $ave->load(['division.casita', 'especie', 'sexo', 'proposito']),
             ], 201);
         });
     }
@@ -164,6 +166,7 @@ class AveController extends Controller
                 'division.casita',
                 'especie',
                 'sexo',
+                'proposito',
                 'movimientos.divisionOrigen.casita',
                 'movimientos.divisionDestino.casita',
             ]),
@@ -196,7 +199,7 @@ class AveController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Ave actualizada exitosamente.',
-                'data' => $ave->fresh(['division.casita', 'especie', 'sexo']),
+                'data' => $ave->fresh(['division.casita', 'especie', 'sexo', 'proposito']),
             ]);
         });
     }

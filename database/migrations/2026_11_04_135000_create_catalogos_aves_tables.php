@@ -26,6 +26,14 @@ return new class extends Migration
             $table->string('descripcion')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('ctl_proposito', function (Blueprint $table) {
+            $table->id();
+            $table->string('nombre')->unique(); // Postura, Reproducción, Ornamental, Crianza, Carne
+            $table->string('descripcion')->nullable();
+            $table->boolean('activa')->default(true);
+            $table->timestamps();
+        });
     }
 
     /**
@@ -33,6 +41,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('ctl_proposito');
         Schema::dropIfExists('ctl_sexo');
         Schema::dropIfExists('ctl_especie');
     }

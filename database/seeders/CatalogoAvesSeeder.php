@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\CtlEspecie;
+use App\Models\CtlProposito;
 use App\Models\CtlSexo;
 use Illuminate\Database\Seeder;
 
@@ -62,6 +63,42 @@ class CatalogoAvesSeeder extends Seeder
             CtlSexo::firstOrCreate(
                 ['nombre' => $s['nombre']],
                 $s
+            );
+        }
+
+        // 3. Catálogo de Propósitos (ctl_proposito)
+        $propositos = [
+            [
+                'nombre' => 'Postura',
+                'descripcion' => 'Producción y recolección regular de huevos',
+                'activa' => true,
+            ],
+            [
+                'nombre' => 'Reproducción',
+                'descripcion' => 'Pie de cría y reproducción controlada de la raza',
+                'activa' => true,
+            ],
+            [
+                'nombre' => 'Ornamental',
+                'descripcion' => 'Aves ornamentales, paisajísticas o de exhibición',
+                'activa' => true,
+            ],
+            [
+                'nombre' => 'Crianza',
+                'descripcion' => 'Crecimiento, desarrollo o engorde',
+                'activa' => true,
+            ],
+            [
+                'nombre' => 'Carne',
+                'descripcion' => 'Aptitud para aprovechamiento cárnico familiar',
+                'activa' => true,
+            ],
+        ];
+
+        foreach ($propositos as $p) {
+            CtlProposito::firstOrCreate(
+                ['nombre' => $p['nombre']],
+                $p
             );
         }
     }

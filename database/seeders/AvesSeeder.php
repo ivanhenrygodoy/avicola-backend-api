@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Ave;
 use App\Models\Casita;
 use App\Models\CtlEspecie;
+use App\Models\CtlProposito;
 use App\Models\CtlSexo;
 use App\Models\Division;
 use App\Models\MovimientoAve;
@@ -25,6 +26,10 @@ class AvesSeeder extends Seeder
         $sexoHembra = CtlSexo::where('nombre', 'Hembra')->firstOrFail();
         $sexoMacho = CtlSexo::where('nombre', 'Macho')->firstOrFail();
 
+        $propPostura = CtlProposito::where('nombre', 'Postura')->firstOrFail();
+        $propReproduccion = CtlProposito::where('nombre', 'Reproducción')->firstOrFail();
+        $propOrnamental = CtlProposito::where('nombre', 'Ornamental')->firstOrFail();
+
         // 2. Obtener casitas y divisiones de referencia
         $casita1 = Casita::where('nombre', 'Casita 1')->first();
         $casita2 = Casita::where('nombre', 'Casita 2')->first();
@@ -43,8 +48,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Canela',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c1d1?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -56,8 +61,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Blanca',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c1d1?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -69,8 +74,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Pintada',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c1d1?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -82,8 +87,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Cresta Roja',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoMacho->id,
+                'id_proposito' => $propReproduccion->id,
                 'raza' => 'Criollo',
-                'proposito' => 'Reproducción',
                 'id_division' => $c1d1?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -97,8 +102,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Ceniza',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c1d2?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -110,8 +115,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Mora',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c1d2?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -123,8 +128,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Perla',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c1d2?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -136,8 +141,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Carioco',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoMacho->id,
+                'id_proposito' => $propReproduccion->id,
                 'raza' => 'Criollo',
-                'proposito' => 'Reproducción',
                 'id_division' => $c1d2?->id,
                 'fecha_ingreso' => '2026-01-15',
                 'estado' => 'activa',
@@ -151,8 +156,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Rubia',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c2d1?->id,
                 'fecha_ingreso' => '2026-01-20',
                 'estado' => 'activa',
@@ -164,8 +169,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Negra',
                 'id_especie' => $espGallina->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propPostura->id,
                 'raza' => 'Criolla',
-                'proposito' => 'Postura',
                 'id_division' => $c2d1?->id,
                 'fecha_ingreso' => '2026-01-20',
                 'estado' => 'activa',
@@ -179,8 +184,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Pavo Real',
                 'id_especie' => $espChompipe->id,
                 'id_sexo' => $sexoMacho->id,
+                'id_proposito' => $propReproduccion->id,
                 'raza' => 'Criolla Autóctona',
-                'proposito' => 'Reproducción',
                 'id_division' => $c2d2?->id,
                 'fecha_ingreso' => '2026-01-10',
                 'estado' => 'activa',
@@ -192,8 +197,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Pavita',
                 'id_especie' => $espChompipe->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propReproduccion->id,
                 'raza' => 'Criolla Autóctona',
-                'proposito' => 'Reproducción',
                 'id_division' => $c2d2?->id,
                 'fecha_ingreso' => '2026-01-10',
                 'estado' => 'activa',
@@ -207,8 +212,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Pato Lucas',
                 'id_especie' => $espPato->id,
                 'id_sexo' => $sexoMacho->id,
+                'id_proposito' => $propOrnamental->id,
                 'raza' => 'Pichiche Silvestre',
-                'proposito' => 'Ornamental',
                 'id_division' => $c3pichiches?->id,
                 'fecha_ingreso' => '2026-01-05',
                 'estado' => 'activa',
@@ -220,8 +225,8 @@ class AvesSeeder extends Seeder
                 'nombre' => 'Pata Daisy',
                 'id_especie' => $espPato->id,
                 'id_sexo' => $sexoHembra->id,
+                'id_proposito' => $propOrnamental->id,
                 'raza' => 'Pichiche Silvestre',
-                'proposito' => 'Ornamental',
                 'id_division' => $c3pichiches?->id,
                 'fecha_ingreso' => '2026-01-05',
                 'estado' => 'activa',

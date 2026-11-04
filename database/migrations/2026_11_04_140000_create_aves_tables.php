@@ -23,10 +23,13 @@ return new class extends Migration
             $table->foreignId('id_sexo')
                 ->constrained('ctl_sexo')
                 ->restrictOnDelete();
+            $table->foreignId('id_proposito')
+                ->nullable()
+                ->constrained('ctl_proposito')
+                ->nullOnDelete();
             $table->string('codigo')->unique();
             $table->string('nombre')->nullable();
             $table->string('raza')->nullable(); // Criolla, Pichiche, etc.
-            $table->string('proposito')->nullable(); // Postura, Reproducción, Ornamental, Crianza, Carne
             $table->date('fecha_nacimiento')->nullable();
             $table->date('fecha_ingreso')->nullable();
             $table->string('estado')->default('activa'); // activa, trasladada, fallecida, salida

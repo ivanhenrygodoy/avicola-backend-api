@@ -17,10 +17,10 @@ class Ave extends Model
         'id_division',
         'id_especie',
         'id_sexo',
+        'id_proposito',
         'codigo',
         'nombre',
         'raza',
-        'proposito',
         'fecha_nacimiento',
         'fecha_ingreso',
         'estado',
@@ -51,6 +51,14 @@ class Ave extends Model
     public function sexo(): BelongsTo
     {
         return $this->belongsTo(CtlSexo::class, 'id_sexo');
+    }
+
+    /**
+     * Propósito zootécnico o productivo catalogado del ave.
+     */
+    public function proposito(): BelongsTo
+    {
+        return $this->belongsTo(CtlProposito::class, 'id_proposito');
     }
 
     /**

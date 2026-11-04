@@ -25,3 +25,4 @@ class CtlSexo extends Model
         return $this->hasMany(Ave::class, 'id_sexo');
     }
 }
+
