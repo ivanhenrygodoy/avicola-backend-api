@@ -290,4 +290,69 @@ class AvesTest extends TestCase
 
         $this->assertNotEmpty($response->json('data'));
     }
+
+    public function test_puede_actualizar_ave_manteniendo_su_propio_codigo(): void
+    {
+        $ave = Ave::where('codigo', 'AVE-014')->firstOrFail();
+
+        $payload = [
+            'codigo' => 'AVE-014',
+            'nombre' => 'Pata Daisy Editada',
+            'id_especie' => $ave->id_especie,
+            'id_sexo' => $ave->id_sexo,
+            'raza' => $ave->raza,
+            'peso_actual_kg' => 1.45,
+        ];
+
+        $response = $this->putJson("/api/v1/aves/{$ave->id}", $payload);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Ave actualizada exitosamente.',
+                'data' => [
+                    'codigo' => 'AVE-014',
+                    'nombre' => 'Pata Daisy Editada',
+                ],
+            ]);
+
+        $this->assertDatabaseHas('mnt_aves', [
+            'id' => $ave->id,
+            'nombre' => 'Pata Daisy Editada',
+        ]);
+    }
+
+    public function test_rechaza_actualizar_ave_con_codigo_de_otra_ave(): void
+    {
+        $ave = Ave::where('codigo', 'AVE-014')->firstOrFail();
+
+        $payload = [
+            'codigo' => 'AVE-001', // Ya pertenece a Canela
+            'id_especie' => $ave->id_especie,
+            'id_sexo' => $ave->id_sexo,
+        ];
+
+        $response = $this->putJson("/api/v1/aves/{$ave->id}", $payload);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['codigo']);
+    }
+
+    public function test_puede_dar_de_baja_ave(): void
+    {
+        $ave = Ave::where('codigo', 'AVE-014')->firstOrFail();
+
+        $response = $this->deleteJson("/api/v1/aves/{$ave->id}");
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->assertDatabaseHas('mnt_aves', [
+            'id' => $ave->id,
+            'estado' => 'salida',
+            'id_division' => null,
+        ]);
+    }
 }

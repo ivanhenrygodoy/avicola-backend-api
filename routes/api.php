@@ -37,7 +37,7 @@ Route::prefix('v1')->group(function () {
         Route::get('catalogos/especies', [AveController::class, 'especies']);
         Route::get('catalogos/sexos', [AveController::class, 'sexos']);
         Route::get('catalogos/propositos', [AveController::class, 'propositos']);
-        Route::apiResource('aves', AveController::class);
+        Route::apiResource('aves', AveController::class)->parameters(['aves' => 'ave']);
         Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
         Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);
     });

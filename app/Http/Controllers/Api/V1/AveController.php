@@ -241,24 +241,14 @@ class AveController extends Controller
      */
     public function destroy(Ave $ave): JsonResponse
     {
-        // Si tiene movimientos históricos, se marca como salida en lugar de borrado físico
-        if ($ave->movimientos()->count() > 1) {
-            $ave->update([
-                'estado' => 'salida',
-                'id_division' => null,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'El ave ha sido dada de baja (estado: salida) conservando su historial.',
-            ]);
-        }
-
-        $ave->delete();
+        $ave->update([
+            'estado' => 'salida',
+            'id_division' => null,
+        ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Ave eliminada correctamente.',
+            'message' => 'El ave ha sido dada de baja (estado: salida) conservando su historial.',
         ]);
     }
 

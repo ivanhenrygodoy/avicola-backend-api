@@ -20,7 +20,8 @@ class UpdateAveRequest extends FormRequest
      */
     public function rules(): array
     {
-        $aveId = $this->route('ave') ? $this->route('ave')->id : null;
+        $ave = $this->route('ave');
+        $aveId = is_object($ave) ? $ave->id : $ave;
 
         return [
             'codigo' => ['required', 'string', 'max:50', Rule::unique('mnt_aves', 'codigo')->ignore($aveId)],
