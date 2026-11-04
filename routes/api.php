@@ -28,6 +28,12 @@ Route::prefix('v1')->group(function () {
 
         // Módulo 3: Inventario de Aves y Movimientos
         Route::get('aves/catalogos', [AveController::class, 'catalogos']);
+        Route::get('aves/especies', [AveController::class, 'especies']);
+        Route::get('aves/sexos', [AveController::class, 'sexos']);
+        Route::get('aves/propositos', [AveController::class, 'propositos']);
+        Route::get('catalogos/especies', [AveController::class, 'especies']);
+        Route::get('catalogos/sexos', [AveController::class, 'sexos']);
+        Route::get('catalogos/propositos', [AveController::class, 'propositos']);
         Route::apiResource('aves', AveController::class);
         Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
         Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);

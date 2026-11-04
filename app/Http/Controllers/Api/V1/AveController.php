@@ -36,18 +36,52 @@ class AveController extends Controller
     }
 
     /**
+     * Retorna el catálogo independiente de especies.
+     */
+    public function especies(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => CtlEspecie::where('activa', true)->orderBy('id')->get(),
+        ]);
+    }
+
+    /**
+     * Retorna el catálogo independiente de sexos.
+     */
+    public function sexos(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => CtlSexo::orderBy('id')->get(),
+        ]);
+    }
+
+    /**
+     * Retorna el catálogo independiente de propósitos.
+     */
+    public function propositos(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => CtlProposito::where('activa', true)->orderBy('id')->get(),
+        ]);
+    }
+
+    /**
      * Listado paginado de aves con filtros y estadísticas agregadas.
      */
     public function index(Request $request): JsonResponse
     {
         $query = Ave::with(['division.casita', 'especie', 'sexo', 'proposito']);
 
-        // Filtro por término de búsqueda (código o nombre)
+        // Filtro por término de búsqueda (código, nombre o raza)
         if ($request->filled('search')) {
             $search = '%' . mb_strtolower(trim($request->query('search'))) . '%';
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(codigo) LIKE ?', [$search])
-                    ->orWhereRaw('LOWER(nombre) LIKE ?', [$search]);
+                    ->orWhereRaw('LOWER(nombre) LIKE ?', [$search])
+                    ->orWhereRaw('LOWER(raza) LIKE ?', [$search]);
             });
         }
 
@@ -61,13 +95,11 @@ class AveController extends Controller
             $query->where('id_sexo', $request->query('id_sexo'));
         }
 
-        // Filtro por estado (por defecto 'activa' a menos que se especifique 'todos' o estado concreto)
+        // Filtro por estado
         if ($request->filled('estado')) {
             if ($request->query('estado') !== 'todos') {
                 $query->where('estado', $request->query('estado'));
             }
-        } else {
-            $query->where('estado', 'activa');
         }
 
         // Filtro por división

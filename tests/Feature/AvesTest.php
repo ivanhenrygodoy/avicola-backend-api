@@ -60,6 +60,17 @@ class AvesTest extends TestCase
         $this->assertCount(5, $response->json('data.propositos'));
     }
 
+    public function test_puede_obtener_listados_independientes_de_especies_y_sexos(): void
+    {
+        $respEspecies = $this->getJson('/api/v1/aves/especies');
+        $respEspecies->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(3, $respEspecies->json('data'));
+
+        $respSexos = $this->getJson('/api/v1/aves/sexos');
+        $respSexos->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertCount(3, $respSexos->json('data'));
+    }
+
     public function test_puede_listar_aves_con_paginacion_y_estadisticas(): void
     {
         $response = $this->getJson('/api/v1/aves');
@@ -120,11 +131,22 @@ class AvesTest extends TestCase
         $responseChompipes->assertStatus(200);
         $this->assertCount(2, $responseChompipes->json('data'));
 
-        // Filtrar por término de búsqueda (Canela)
+        // Filtrar por término de búsqueda (nombre: Canela)
         $responseCanela = $this->getJson('/api/v1/aves?search=Canela');
         $responseCanela->assertStatus(200);
         $this->assertCount(1, $responseCanela->json('data'));
         $this->assertEquals('AVE-001', $responseCanela->json('data.0.codigo'));
+
+        // Filtrar por término de búsqueda por raza (Pichiche)
+        $responseRaza = $this->getJson('/api/v1/aves?search=Pichiche');
+        $responseRaza->assertStatus(200);
+        $this->assertCount(2, $responseRaza->json('data'));
+
+        // Filtrar por sexo
+        $macho = CtlSexo::where('nombre', 'Macho')->firstOrFail();
+        $responseMachos = $this->getJson("/api/v1/aves?id_sexo={$macho->id}");
+        $responseMachos->assertStatus(200);
+        $this->assertGreaterThanOrEqual(1, count($responseMachos->json('data')));
     }
 
     public function test_puede_registrar_nueva_ave_sin_division(): void
