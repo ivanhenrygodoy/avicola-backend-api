@@ -1,0 +1,54 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: avicola_api
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8005
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: avicola_inteligente_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    networks:
+      - avicola_network
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: avicola_postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: avicola_inteligente_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d avicola_inteligente_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - avicola_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  avicola_network:
+    driver: bridge

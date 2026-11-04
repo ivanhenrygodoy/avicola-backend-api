@@ -1,0 +1,28 @@
+<?php
+
+use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CasitaController;
+use App\Http\Controllers\Api\V1\DivisionController;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('v1')->group(function () {
+    // Rutas públicas de autenticación
+    Route::prefix('auth')->group(function () {
+        Route::post('login', [AuthController::class, 'login']);
+
+        // Rutas protegidas de autenticación
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::post('logout', [AuthController::class, 'logout']);
+            Route::get('me', [AuthController::class, 'me']);
+        });
+    });
+
+    // Rutas protegidas del negocio
+    Route::middleware('auth:sanctum')->group(function () {
+        // Módulo 2: Instalaciones (Casitas y Divisiones)
+        Route::apiResource('casitas', CasitaController::class);
+        Route::patch('casitas/{casita}/toggle-activa', [CasitaController::class, 'toggleActiva']);
+        Route::apiResource('divisiones', DivisionController::class);
+        Route::patch('divisiones/{division}/toggle-activa', [DivisionController::class, 'toggleActiva']);
+    });
+});
