@@ -3,6 +3,7 @@
 namespace App\Services\Aves;
 
 use App\Models\Ave;
+use App\Models\CtlEspecie;
 use App\Models\Division;
 use App\Models\MovimientoAve;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,7 @@ class TrasladarAveService
             ]);
         }
 
-        // 3. Regla Biológica Estricta de Separación de Especies
+        // 3. Regla Biológica Estricta de Separación de Especies (por catálogo ctl_especie)
         $this->validarCompatibilidadBiologica($ave, $divisionDestino);
 
         // 4. Ejecutar el traslado atómicamente dentro de una transacción
@@ -67,7 +68,7 @@ class TrasladarAveService
             ]);
 
             return [
-                'ave' => $ave->fresh(['division.casita']),
+                'ave' => $ave->fresh(['division.casita', 'especie', 'sexo']),
                 'movimiento' => $movimiento->load(['divisionOrigen', 'divisionDestino']),
             ];
         });
@@ -75,28 +76,29 @@ class TrasladarAveService
 
     /**
      * Valida que la especie del ave sea compatible con las aves presentes en la división destino.
-     * En una división avícola sólo pueden convivir aves de la misma especie.
+     * En una división avícola sólo pueden convivir aves de la misma especie catalogada (ctl_especie).
      *
      * @throws ValidationException
      */
     public function validarCompatibilidadBiologica(Ave $ave, Division $divisionDestino): void
     {
-        // Obtener especies activas distintas ya presentes en la división destino
-        $especiesPresentes = Ave::where('id_division', $divisionDestino->id)
+        // Buscar aves activas en la división destino con una especie distinta a la del ave
+        $otraAve = Ave::where('id_division', $divisionDestino->id)
             ->where('id', '!=', $ave->id)
             ->where('estado', 'activa')
-            ->distinct()
-            ->pluck('especie')
-            ->toArray();
+            ->where('id_especie', '!=', $ave->id_especie)
+            ->with('especie')
+            ->first();
 
-        foreach ($especiesPresentes as $especieExistente) {
-            if (strcasecmp($especieExistente, $ave->especie) !== 0) {
-                throw ValidationException::withMessages([
-                    'id_division_destino' => [
-                        "Incompatibilidad biológica: La división '{$divisionDestino->nombre}' ya alberga aves de especie '{$especieExistente}'. No se permite mezclar con aves de especie '{$ave->especie}'.",
-                    ],
-                ]);
-            }
+        if ($otraAve) {
+            $especieDestino = $otraAve->especie?->nombre ?? 'otra especie';
+            $especieAve = $ave->especie?->nombre ?? CtlEspecie::find($ave->id_especie)?->nombre ?? 'esta especie';
+
+            throw ValidationException::withMessages([
+                'id_division_destino' => [
+                    "Incompatibilidad biológica: La división '{$divisionDestino->nombre}' ya alberga aves de especie '{$especieDestino}'. No se permite mezclar con aves de especie '{$especieAve}'.",
+                ],
+            ]);
         }
     }
 }

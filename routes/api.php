@@ -27,6 +27,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('divisiones/{division}/toggle-activa', [DivisionController::class, 'toggleActiva']);
 
         // Módulo 3: Inventario de Aves y Movimientos
+        Route::get('aves/catalogos', [AveController::class, 'catalogos']);
         Route::apiResource('aves', AveController::class);
         Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
         Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);

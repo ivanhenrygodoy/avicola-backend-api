@@ -15,10 +15,10 @@ class Ave extends Model
 
     protected $fillable = [
         'id_division',
+        'id_especie',
+        'id_sexo',
         'codigo',
         'nombre',
-        'especie',
-        'sexo',
         'raza',
         'proposito',
         'fecha_nacimiento',
@@ -35,6 +35,22 @@ class Ave extends Model
             'fecha_ingreso' => 'date',
             'peso_actual_kg' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Especie catalogada del ave.
+     */
+    public function especie(): BelongsTo
+    {
+        return $this->belongsTo(CtlEspecie::class, 'id_especie');
+    }
+
+    /**
+     * Sexo biológico catalogado del ave.
+     */
+    public function sexo(): BelongsTo
+    {
+        return $this->belongsTo(CtlSexo::class, 'id_sexo');
     }
 
     /**
@@ -62,12 +78,12 @@ class Ave extends Model
     }
 
     /**
-     * Scope para filtrar por especie.
+     * Scope para filtrar por ID de especie.
      */
-    public function scopePorEspecie($query, $especie)
+    public function scopePorEspecie($query, $idEspecie)
     {
-        if ($especie) {
-            return $query->where('especie', $especie);
+        if ($idEspecie) {
+            return $query->where('id_especie', $idEspecie);
         }
         return $query;
     }

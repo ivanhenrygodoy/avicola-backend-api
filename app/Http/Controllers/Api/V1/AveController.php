@@ -7,6 +7,8 @@ use App\Http\Requests\Aves\StoreAveRequest;
 use App\Http\Requests\Aves\TrasladarAveRequest;
 use App\Http\Requests\Aves\UpdateAveRequest;
 use App\Models\Ave;
+use App\Models\CtlEspecie;
+use App\Models\CtlSexo;
 use App\Models\Division;
 use App\Models\MovimientoAve;
 use App\Services\Aves\TrasladarAveService;
@@ -18,11 +20,25 @@ use Illuminate\Validation\ValidationException;
 class AveController extends Controller
 {
     /**
+     * Retorna los catálogos requeridos para formularios de aves (ctl_especie, ctl_sexo).
+     */
+    public function catalogos(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'especies' => CtlEspecie::where('activa', true)->orderBy('id')->get(),
+                'sexos' => CtlSexo::orderBy('id')->get(),
+            ],
+        ]);
+    }
+
+    /**
      * Listado paginado de aves con filtros y estadísticas agregadas.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Ave::with(['division.casita']);
+        $query = Ave::with(['division.casita', 'especie', 'sexo']);
 
         // Filtro por término de búsqueda (código o nombre)
         if ($request->filled('search')) {
@@ -33,14 +49,14 @@ class AveController extends Controller
             });
         }
 
-        // Filtro por especie
-        if ($request->filled('especie')) {
-            $query->where('especie', $request->query('especie'));
+        // Filtro por ID de especie (catálogo ctl_especie)
+        if ($request->filled('id_especie')) {
+            $query->where('id_especie', $request->query('id_especie'));
         }
 
-        // Filtro por sexo
-        if ($request->filled('sexo')) {
-            $query->where('sexo', $request->query('sexo'));
+        // Filtro por ID de sexo (catálogo ctl_sexo)
+        if ($request->filled('id_sexo')) {
+            $query->where('id_sexo', $request->query('id_sexo'));
         }
 
         // Filtro por estado (por defecto 'activa' a menos que se especifique 'todos' o estado concreto)
@@ -72,9 +88,9 @@ class AveController extends Controller
         $stats = [
             'total_aves' => Ave::count(),
             'activas_count' => Ave::where('estado', 'activa')->count(),
-            'gallinas_count' => Ave::where('estado', 'activa')->where('especie', 'Gallina')->count(),
-            'chompipes_count' => Ave::where('estado', 'activa')->where('especie', 'Chompipe')->count(),
-            'patos_count' => Ave::where('estado', 'activa')->where('especie', 'Pato')->count(),
+            'gallinas_count' => Ave::where('estado', 'activa')->whereHas('especie', fn($q) => $q->where('nombre', 'Gallina'))->count(),
+            'chompipes_count' => Ave::where('estado', 'activa')->whereHas('especie', fn($q) => $q->where('nombre', 'Chompipe'))->count(),
+            'patos_count' => Ave::where('estado', 'activa')->whereHas('especie', fn($q) => $q->where('nombre', 'Pato'))->count(),
         ];
 
         return response()->json([
@@ -132,7 +148,7 @@ class AveController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Ave registrada exitosamente.',
-                'data' => $ave->load('division.casita'),
+                'data' => $ave->load(['division.casita', 'especie', 'sexo']),
             ], 201);
         });
     }
@@ -146,6 +162,8 @@ class AveController extends Controller
             'success' => true,
             'data' => $ave->load([
                 'division.casita',
+                'especie',
+                'sexo',
                 'movimientos.divisionOrigen.casita',
                 'movimientos.divisionDestino.casita',
             ]),
@@ -178,7 +196,7 @@ class AveController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Ave actualizada exitosamente.',
-                'data' => $ave->fresh(['division.casita']),
+                'data' => $ave->fresh(['division.casita', 'especie', 'sexo']),
             ]);
         });
     }

@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\Ave;
 use App\Models\Casita;
+use App\Models\CtlEspecie;
+use App\Models\CtlSexo;
 use App\Models\Division;
 use App\Models\MovimientoAve;
 use Illuminate\Database\Seeder;
@@ -15,7 +17,15 @@ class AvesSeeder extends Seeder
      */
     public function run(): void
     {
-        // Obtener casitas y divisiones de referencia
+        // 1. Obtener catálogos
+        $espGallina = CtlEspecie::where('nombre', 'Gallina')->firstOrFail();
+        $espChompipe = CtlEspecie::where('nombre', 'Chompipe')->firstOrFail();
+        $espPato = CtlEspecie::where('nombre', 'Pato')->firstOrFail();
+
+        $sexoHembra = CtlSexo::where('nombre', 'Hembra')->firstOrFail();
+        $sexoMacho = CtlSexo::where('nombre', 'Macho')->firstOrFail();
+
+        // 2. Obtener casitas y divisiones de referencia
         $casita1 = Casita::where('nombre', 'Casita 1')->first();
         $casita2 = Casita::where('nombre', 'Casita 2')->first();
         $casita3 = Casita::where('nombre', 'Casita 3')->first();
@@ -31,8 +41,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-001',
                 'nombre' => 'Canela',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c1d1?->id,
@@ -44,8 +54,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-002',
                 'nombre' => 'Blanca',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c1d1?->id,
@@ -57,8 +67,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-003',
                 'nombre' => 'Pintada',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c1d1?->id,
@@ -70,8 +80,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-004',
                 'nombre' => 'Cresta Roja',
-                'especie' => 'Gallina',
-                'sexo' => 'Macho',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoMacho->id,
                 'raza' => 'Criollo',
                 'proposito' => 'Reproducción',
                 'id_division' => $c1d1?->id,
@@ -85,8 +95,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-005',
                 'nombre' => 'Ceniza',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c1d2?->id,
@@ -98,8 +108,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-006',
                 'nombre' => 'Mora',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c1d2?->id,
@@ -111,8 +121,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-007',
                 'nombre' => 'Perla',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c1d2?->id,
@@ -124,8 +134,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-008',
                 'nombre' => 'Carioco',
-                'especie' => 'Gallina',
-                'sexo' => 'Macho',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoMacho->id,
                 'raza' => 'Criollo',
                 'proposito' => 'Reproducción',
                 'id_division' => $c1d2?->id,
@@ -139,8 +149,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-009',
                 'nombre' => 'Rubia',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c2d1?->id,
@@ -152,8 +162,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-010',
                 'nombre' => 'Negra',
-                'especie' => 'Gallina',
-                'sexo' => 'Hembra',
+                'id_especie' => $espGallina->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla',
                 'proposito' => 'Postura',
                 'id_division' => $c2d1?->id,
@@ -167,8 +177,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-011',
                 'nombre' => 'Pavo Real',
-                'especie' => 'Chompipe',
-                'sexo' => 'Macho',
+                'id_especie' => $espChompipe->id,
+                'id_sexo' => $sexoMacho->id,
                 'raza' => 'Criolla Autóctona',
                 'proposito' => 'Reproducción',
                 'id_division' => $c2d2?->id,
@@ -180,8 +190,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-012',
                 'nombre' => 'Pavita',
-                'especie' => 'Chompipe',
-                'sexo' => 'Hembra',
+                'id_especie' => $espChompipe->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Criolla Autóctona',
                 'proposito' => 'Reproducción',
                 'id_division' => $c2d2?->id,
@@ -195,8 +205,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-013',
                 'nombre' => 'Pato Lucas',
-                'especie' => 'Pato',
-                'sexo' => 'Macho',
+                'id_especie' => $espPato->id,
+                'id_sexo' => $sexoMacho->id,
                 'raza' => 'Pichiche Silvestre',
                 'proposito' => 'Ornamental',
                 'id_division' => $c3pichiches?->id,
@@ -208,8 +218,8 @@ class AvesSeeder extends Seeder
             [
                 'codigo' => 'AVE-014',
                 'nombre' => 'Pata Daisy',
-                'especie' => 'Pato',
-                'sexo' => 'Hembra',
+                'id_especie' => $espPato->id,
+                'id_sexo' => $sexoHembra->id,
                 'raza' => 'Pichiche Silvestre',
                 'proposito' => 'Ornamental',
                 'id_division' => $c3pichiches?->id,

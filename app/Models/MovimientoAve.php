@@ -52,3 +52,4 @@ class MovimientoAve extends Model
         return $this->belongsTo(Division::class, 'id_division_destino');
     }
 }
+

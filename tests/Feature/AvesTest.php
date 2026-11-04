@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Ave;
 use App\Models\Casita;
+use App\Models\CtlEspecie;
+use App\Models\CtlSexo;
 use App\Models\Division;
 use App\Models\Granja;
 use App\Models\User;
 use Database\Seeders\AvesSeeder;
+use Database\Seeders\CatalogoAvesSeeder;
 use Database\Seeders\InstalacionesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -26,9 +29,31 @@ class AvesTest extends TestCase
         $this->user = User::factory()->create();
         Sanctum::actingAs($this->user);
 
-        // Sembrar instalaciones y las 14 aves iniciales
+        // Sembrar catálogos, instalaciones y las 14 aves iniciales
+        $this->seed(CatalogoAvesSeeder::class);
         $this->seed(InstalacionesSeeder::class);
         $this->seed(AvesSeeder::class);
+    }
+
+    public function test_puede_obtener_catalogos_de_aves(): void
+    {
+        $response = $this->getJson('/api/v1/aves/catalogos');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    'especies' => [
+                        '*' => ['id', 'nombre', 'icono', 'activa'],
+                    ],
+                    'sexos' => [
+                        '*' => ['id', 'nombre'],
+                    ],
+                ],
+            ]);
+
+        $this->assertCount(3, $response->json('data.especies'));
+        $this->assertCount(3, $response->json('data.sexos'));
     }
 
     public function test_puede_listar_aves_con_paginacion_y_estadisticas(): void
@@ -43,8 +68,10 @@ class AvesTest extends TestCase
                         'id',
                         'codigo',
                         'nombre',
-                        'especie',
-                        'sexo',
+                        'id_especie',
+                        'id_sexo',
+                        'especie' => ['id', 'nombre', 'icono'],
+                        'sexo' => ['id', 'nombre'],
                         'raza',
                         'proposito',
                         'estado',
@@ -82,8 +109,10 @@ class AvesTest extends TestCase
 
     public function test_puede_filtrar_aves_por_especie_y_busqueda(): void
     {
-        // Filtrar por especie Chompipe
-        $responseChompipes = $this->getJson('/api/v1/aves?especie=Chompipe');
+        $chompipe = CtlEspecie::where('nombre', 'Chompipe')->firstOrFail();
+
+        // Filtrar por ID de especie Chompipe
+        $responseChompipes = $this->getJson("/api/v1/aves?id_especie={$chompipe->id}");
         $responseChompipes->assertStatus(200);
         $this->assertCount(2, $responseChompipes->json('data'));
 
@@ -96,11 +125,14 @@ class AvesTest extends TestCase
 
     public function test_puede_registrar_nueva_ave_sin_division(): void
     {
+        $gallina = CtlEspecie::where('nombre', 'Gallina')->firstOrFail();
+        $hembra = CtlSexo::where('nombre', 'Hembra')->firstOrFail();
+
         $payload = [
             'codigo' => 'AVE-099',
             'nombre' => 'Ponedora Nueva',
-            'especie' => 'Gallina',
-            'sexo' => 'Hembra',
+            'id_especie' => $gallina->id,
+            'id_sexo' => $hembra->id,
             'raza' => 'Criolla',
             'proposito' => 'Postura',
             'fecha_ingreso' => '2026-02-01',
@@ -116,6 +148,8 @@ class AvesTest extends TestCase
                 'data' => [
                     'codigo' => 'AVE-099',
                     'nombre' => 'Ponedora Nueva',
+                    'id_especie' => $gallina->id,
+                    'id_sexo' => $hembra->id,
                 ],
             ]);
 
@@ -124,11 +158,14 @@ class AvesTest extends TestCase
 
     public function test_falla_al_registrar_ave_con_codigo_duplicado(): void
     {
+        $gallina = CtlEspecie::where('nombre', 'Gallina')->firstOrFail();
+        $hembra = CtlSexo::where('nombre', 'Hembra')->firstOrFail();
+
         $payload = [
             'codigo' => 'AVE-001', // Ya existe Canela
             'nombre' => 'Clon',
-            'especie' => 'Gallina',
-            'sexo' => 'Hembra',
+            'id_especie' => $gallina->id,
+            'id_sexo' => $hembra->id,
         ];
 
         $response = $this->postJson('/api/v1/aves', $payload);

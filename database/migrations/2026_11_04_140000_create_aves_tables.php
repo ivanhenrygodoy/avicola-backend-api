@@ -17,10 +17,14 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('mnt_divisiones')
                 ->nullOnDelete();
+            $table->foreignId('id_especie')
+                ->constrained('ctl_especie')
+                ->restrictOnDelete();
+            $table->foreignId('id_sexo')
+                ->constrained('ctl_sexo')
+                ->restrictOnDelete();
             $table->string('codigo')->unique();
             $table->string('nombre')->nullable();
-            $table->string('especie'); // Gallina, Chompipe, Pato
-            $table->string('sexo')->default('Desconocido'); // Macho, Hembra, Desconocido
             $table->string('raza')->nullable(); // Criolla, Pichiche, etc.
             $table->string('proposito')->nullable(); // Postura, Reproducción, Ornamental, Crianza, Carne
             $table->date('fecha_nacimiento')->nullable();
