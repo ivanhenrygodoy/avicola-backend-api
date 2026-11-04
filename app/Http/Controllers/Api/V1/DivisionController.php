@@ -94,6 +94,13 @@ class DivisionController extends Controller
      */
     public function destroy(Division $division): JsonResponse
     {
+        if ($division->aves()->count() > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar la división porque tiene aves registradas.',
+            ], 422);
+        }
+
         $division->delete();
 
         return response()->json([

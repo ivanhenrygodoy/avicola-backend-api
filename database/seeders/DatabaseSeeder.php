@@ -21,6 +21,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $this->call(InstalacionesSeeder::class);
+        $this->call([
+            InstalacionesSeeder::class,
+            AvesSeeder::class,
+        ]);
     }
 }

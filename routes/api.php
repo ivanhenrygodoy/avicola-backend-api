@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AveController;
 use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DivisionController;
 use Illuminate\Support\Facades\Route;
@@ -24,5 +25,10 @@ Route::prefix('v1')->group(function () {
         Route::patch('casitas/{casita}/toggle-activa', [CasitaController::class, 'toggleActiva']);
         Route::apiResource('divisiones', DivisionController::class);
         Route::patch('divisiones/{division}/toggle-activa', [DivisionController::class, 'toggleActiva']);
+
+        // Módulo 3: Inventario de Aves y Movimientos
+        Route::apiResource('aves', AveController::class);
+        Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
+        Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);
     });
 });

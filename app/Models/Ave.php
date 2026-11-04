@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Ave extends Model
+{
+    use HasFactory;
+
+    protected $table = 'mnt_aves';
+
+    protected $fillable = [
+        'id_division',
+        'codigo',
+        'nombre',
+        'especie',
+        'sexo',
+        'raza',
+        'proposito',
+        'fecha_nacimiento',
+        'fecha_ingreso',
+        'estado',
+        'peso_actual_kg',
+        'observaciones',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'fecha_nacimiento' => 'date',
+            'fecha_ingreso' => 'date',
+            'peso_actual_kg' => 'decimal:2',
+        ];
+    }
+
+    /**
+     * División o corral donde se encuentra actualmente el ave.
+     */
+    public function division(): BelongsTo
+    {
+        return $this->belongsTo(Division::class, 'id_division');
+    }
+
+    /**
+     * Historial de traslados y movimientos del ave.
+     */
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(MovimientoAve::class, 'id_ave')->orderBy('fecha', 'desc');
+    }
+
+    /**
+     * Scope para filtrar aves activas.
+     */
+    public function scopeActiva($query)
+    {
+        return $query->where('estado', 'activa');
+    }
+
+    /**
+     * Scope para filtrar por especie.
+     */
+    public function scopePorEspecie($query, $especie)
+    {
+        if ($especie) {
+            return $query->where('especie', $especie);
+        }
+        return $query;
+    }
+}

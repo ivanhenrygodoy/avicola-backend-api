@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Http\Requests\Aves;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateAveRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     */
+    public function rules(): array
+    {
+        $aveId = $this->route('ave') ? $this->route('ave')->id : null;
+
+        return [
+            'codigo' => ['required', 'string', 'max:50', Rule::unique('mnt_aves', 'codigo')->ignore($aveId)],
+            'nombre' => ['nullable', 'string', 'max:100'],
+            'especie' => ['required', 'string', 'max:50'],
+            'sexo' => ['required', 'string', 'in:Macho,Hembra,Desconocido'],
+            'raza' => ['nullable', 'string', 'max:100'],
+            'proposito' => ['nullable', 'string', 'max:100'],
+            'id_division' => ['nullable', 'integer', 'exists:mnt_divisiones,id'],
+            'fecha_nacimiento' => ['nullable', 'date'],
+            'fecha_ingreso' => ['nullable', 'date'],
+            'estado' => ['nullable', 'string', 'in:activa,trasladada,fallecida,salida'],
+            'peso_actual_kg' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
+            'observaciones' => ['nullable', 'string'],
+        ];
+    }
+
+    /**
+     * Custom messages for validation errors.
+     */
+    public function messages(): array
+    {
+        return [
+            'codigo.required' => 'El código del ave es obligatorio.',
+            'codigo.unique' => 'Ya existe un ave registrada con este código.',
+            'especie.required' => 'La especie es obligatoria.',
+            'sexo.required' => 'El sexo es obligatorio.',
+            'sexo.in' => 'El sexo seleccionado no es válido.',
+            'id_division.exists' => 'La división seleccionada no existe.',
+            'peso_actual_kg.numeric' => 'El peso debe ser un valor numérico.',
+            'peso_actual_kg.min' => 'El peso no puede ser negativo.',
+        ];
+    }
+}
