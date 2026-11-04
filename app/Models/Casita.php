@@ -15,6 +15,7 @@ class Casita extends Model
 
     protected $fillable = [
         'id_granja',
+        'id_tipo_instalacion',
         'nombre',
         'descripcion',
         'tipo',
@@ -34,6 +35,14 @@ class Casita extends Model
     public function granja(): BelongsTo
     {
         return $this->belongsTo(Granja::class, 'id_granja');
+    }
+
+    /**
+     * Tipo de instalación del catálogo ctl_tipo_instalacion.
+     */
+    public function tipoInstalacion(): BelongsTo
+    {
+        return $this->belongsTo(CtlTipoInstalacion::class, 'id_tipo_instalacion');
     }
 
     /**

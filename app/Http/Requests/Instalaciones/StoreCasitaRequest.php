@@ -15,6 +15,7 @@ class StoreCasitaRequest extends FormRequest
     {
         return [
             'id_granja' => ['required', 'exists:mnt_granjas,id'],
+            'id_tipo_instalacion' => ['nullable', 'exists:ctl_tipo_instalacion,id'],
             'nombre' => ['required', 'string', 'max:100'],
             'descripcion' => ['nullable', 'string', 'max:500'],
             'tipo' => ['nullable', 'string', 'max:50'],

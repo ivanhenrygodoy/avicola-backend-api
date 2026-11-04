@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Instalaciones\StoreCasitaRequest;
 use App\Http\Requests\Instalaciones\UpdateCasitaRequest;
 use App\Models\Casita;
+use App\Models\CtlTipoInstalacion;
 use App\Models\Division;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,13 +14,27 @@ use Illuminate\Http\Request;
 class CasitaController extends Controller
 {
     /**
+     * Retorna el catálogo de tipos de instalación.
+     */
+    public function tipos(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => CtlTipoInstalacion::where('activa', true)->orderBy('id')->get(),
+        ]);
+    }
+
+    /**
      * Listar casitas con búsqueda, filtros, paginación dinámica y estadísticas globales.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Casita::with(['divisiones' => function ($q) {
-            $q->orderBy('id', 'asc');
-        }]);
+        $query = Casita::with([
+            'tipoInstalacion',
+            'divisiones' => function ($q) {
+                $q->orderBy('id', 'asc');
+            },
+        ]);
 
         // Filtro de búsqueda por texto (nombre o descripción)
         if ($request->filled('buscar')) {
@@ -30,9 +45,21 @@ class CasitaController extends Controller
             });
         }
 
-        // Filtro por tipo de instalación
+        // Filtro por tipo de instalación (admite ID de catálogo o nombre)
         if ($request->filled('tipo')) {
-            $query->where('tipo', $request->input('tipo'));
+            $tipo = $request->input('tipo');
+            if (is_numeric($tipo)) {
+                $query->where('id_tipo_instalacion', (int) $tipo);
+            } else {
+                $query->where(function ($q) use ($tipo) {
+                    $q->where('tipo', $tipo)
+                      ->orWhereHas('tipoInstalacion', fn($sq) => $sq->where('nombre', $tipo));
+                });
+            }
+        }
+
+        if ($request->filled('id_tipo_instalacion')) {
+            $query->where('id_tipo_instalacion', (int) $request->input('id_tipo_instalacion'));
         }
 
         // Filtro por estado activo/inactivo
@@ -78,12 +105,26 @@ class CasitaController extends Controller
      */
     public function store(StoreCasitaRequest $request): JsonResponse
     {
-        $casita = Casita::create($request->validated());
+        $data = $request->validated();
+
+        if (!empty($data['id_tipo_instalacion']) && empty($data['tipo'])) {
+            $tipoCat = CtlTipoInstalacion::find($data['id_tipo_instalacion']);
+            if ($tipoCat) {
+                $data['tipo'] = $tipoCat->nombre;
+            }
+        } elseif (!empty($data['tipo']) && empty($data['id_tipo_instalacion'])) {
+            $tipoCat = CtlTipoInstalacion::where('nombre', $data['tipo'])->first();
+            if ($tipoCat) {
+                $data['id_tipo_instalacion'] = $tipoCat->id;
+            }
+        }
+
+        $casita = Casita::create($data);
 
         return response()->json([
             'success' => true,
             'message' => 'Casita creada exitosamente.',
-            'data' => $casita->load('divisiones'),
+            'data' => $casita->load(['divisiones', 'tipoInstalacion']),
         ], 201);
     }
 
@@ -94,7 +135,7 @@ class CasitaController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $casita->load('divisiones'),
+            'data' => $casita->load(['divisiones', 'tipoInstalacion']),
         ]);
     }
 
@@ -103,12 +144,26 @@ class CasitaController extends Controller
      */
     public function update(UpdateCasitaRequest $request, Casita $casita): JsonResponse
     {
-        $casita->update($request->validated());
+        $data = $request->validated();
+
+        if (!empty($data['id_tipo_instalacion']) && empty($data['tipo'])) {
+            $tipoCat = CtlTipoInstalacion::find($data['id_tipo_instalacion']);
+            if ($tipoCat) {
+                $data['tipo'] = $tipoCat->nombre;
+            }
+        } elseif (!empty($data['tipo']) && empty($data['id_tipo_instalacion'])) {
+            $tipoCat = CtlTipoInstalacion::where('nombre', $data['tipo'])->first();
+            if ($tipoCat) {
+                $data['id_tipo_instalacion'] = $tipoCat->id;
+            }
+        }
+
+        $casita->update($data);
 
         return response()->json([
             'success' => true,
             'message' => 'Casita actualizada exitosamente.',
-            'data' => $casita->load('divisiones'),
+            'data' => $casita->load(['divisiones', 'tipoInstalacion']),
         ]);
     }
 

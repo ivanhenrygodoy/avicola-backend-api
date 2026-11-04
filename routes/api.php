@@ -21,6 +21,9 @@ Route::prefix('v1')->group(function () {
     // Rutas protegidas del negocio
     Route::middleware('auth:sanctum')->group(function () {
         // Módulo 2: Instalaciones (Casitas y Divisiones)
+        Route::get('instalaciones/tipos', [CasitaController::class, 'tipos']);
+        Route::get('casitas/tipos', [CasitaController::class, 'tipos']);
+        Route::get('catalogos/tipos-instalacion', [CasitaController::class, 'tipos']);
         Route::apiResource('casitas', CasitaController::class);
         Route::patch('casitas/{casita}/toggle-activa', [CasitaController::class, 'toggleActiva']);
         Route::apiResource('divisiones', DivisionController::class);

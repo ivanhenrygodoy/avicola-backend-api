@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
+            CatalogoInstalacionesSeeder::class,
             CatalogoAvesSeeder::class,
             InstalacionesSeeder::class,
             AvesSeeder::class,

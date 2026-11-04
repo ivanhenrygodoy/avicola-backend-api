@@ -24,6 +24,25 @@ class InstalacionesTest extends TestCase
         $this->seed(InstalacionesSeeder::class);
     }
 
+    public function test_authenticated_user_can_get_tipos_instalacion_catalog(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->getJson('/api/v1/instalaciones/tipos');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ])
+            ->assertJsonStructure([
+                'success',
+                'data' => [
+                    '*' => ['id', 'nombre', 'activa'],
+                ],
+            ]);
+
+        $this->assertGreaterThanOrEqual(3, count($response->json('data')));
+    }
+
     public function test_authenticated_user_can_list_casitas_with_divisions_and_pagination(): void
     {
         $response = $this->actingAs($this->user)

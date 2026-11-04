@@ -23,9 +23,13 @@ return new class extends Migration
             $table->foreignId('id_granja')
                 ->constrained('mnt_granjas')
                 ->restrictOnDelete();
+            $table->foreignId('id_tipo_instalacion')
+                ->nullable()
+                ->constrained('ctl_tipo_instalacion')
+                ->nullOnDelete();
             $table->string('nombre');
             $table->text('descripcion')->nullable();
-            $table->string('tipo')->nullable(); // gallinero, mixto, patos, etc.
+            $table->string('tipo')->nullable(); // Compatibilidad
             $table->boolean('activa')->default(true);
             $table->timestamps();
         });

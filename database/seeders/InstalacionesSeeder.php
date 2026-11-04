@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Casita;
+use App\Models\CtlTipoInstalacion;
 use App\Models\Division;
 use App\Models\Granja;
 use Illuminate\Database\Seeder;
@@ -14,6 +15,13 @@ class InstalacionesSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Asegurar catálogo de tipos de instalación
+        $this->call(CatalogoInstalacionesSeeder::class);
+
+        $tipoGallinero = CtlTipoInstalacion::where('nombre', 'Gallinero')->first();
+        $tipoMixto = CtlTipoInstalacion::where('nombre', 'Mixto')->first();
+        $tipoPatos = CtlTipoInstalacion::where('nombre', 'Patos')->first();
+
         // 1. Granja base
         $granja = Granja::firstOrCreate(
             ['nombre' => 'Granja Avícola San Antonio'],
@@ -23,7 +31,12 @@ class InstalacionesSeeder extends Seeder
         // 2. Casita 1 (Gallinas y Gallos Criollos)
         $casita1 = Casita::firstOrCreate(
             ['id_granja' => $granja->id, 'nombre' => 'Casita 1'],
-            ['descripcion' => 'Instalación principal para gallinas y gallos criollos', 'tipo' => 'Gallinero', 'activa' => true]
+            [
+                'id_tipo_instalacion' => $tipoGallinero?->id,
+                'descripcion' => 'Instalación principal para gallinas y gallos criollos',
+                'tipo' => 'Gallinero',
+                'activa' => true,
+            ]
         );
 
         Division::firstOrCreate(
@@ -39,7 +52,12 @@ class InstalacionesSeeder extends Seeder
         // 3. Casita 2 (Gallinas y Chompipes)
         $casita2 = Casita::firstOrCreate(
             ['id_granja' => $granja->id, 'nombre' => 'Casita 2'],
-            ['descripcion' => 'Instalación secundaria con corrales independientes', 'tipo' => 'Mixto', 'activa' => true]
+            [
+                'id_tipo_instalacion' => $tipoMixto?->id,
+                'descripcion' => 'Instalación secundaria con corrales independientes',
+                'tipo' => 'Mixto',
+                'activa' => true,
+            ]
         );
 
         Division::firstOrCreate(
@@ -55,7 +73,12 @@ class InstalacionesSeeder extends Seeder
         // 4. Casita 3 (Patos Pichiches)
         $casita3 = Casita::firstOrCreate(
             ['id_granja' => $granja->id, 'nombre' => 'Casita 3'],
-            ['descripcion' => 'Instalación para aves acuáticas / ornamentales', 'tipo' => 'Patos', 'activa' => true]
+            [
+                'id_tipo_instalacion' => $tipoPatos?->id,
+                'descripcion' => 'Instalación para aves acuáticas / ornamentales',
+                'tipo' => 'Patos',
+                'activa' => true,
+            ]
         );
 
         Division::firstOrCreate(
