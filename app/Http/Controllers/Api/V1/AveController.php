@@ -238,19 +238,70 @@ class AveController extends Controller
     }
 
     /**
-     * Dar de baja o eliminar un ave.
+     * Dar de baja o eliminar un ave registrando el movimiento de salida en el historial.
      */
-    public function destroy(Ave $ave): JsonResponse
+    public function destroy(Request $request, Ave $ave): JsonResponse
     {
-        $ave->update([
-            'estado' => 'salida',
-            'id_division' => null,
-        ]);
+        return DB::transaction(function () use ($request, $ave) {
+            $divisionOrigenId = $ave->id_division;
 
-        return response()->json([
-            'success' => true,
-            'message' => 'El ave ha sido dada de baja (estado: salida) conservando su historial.',
-        ]);
+            // Registrar movimiento histórico de baja / salida
+            MovimientoAve::create([
+                'id_ave' => $ave->id,
+                'id_division_origen' => $divisionOrigenId,
+                'id_division_destino' => null,
+                'fecha' => now(),
+                'motivo' => $request->input('motivo') ?: 'Baja / Salida',
+                'observaciones' => $request->input('observaciones') ?: 'Registro de baja/salida del ave del inventario activo.',
+            ]);
+
+            $ave->update([
+                'estado' => 'salida',
+                'id_division' => null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'El ave ha sido dada de baja (estado: salida) conservando su historial.',
+            ]);
+        });
+    }
+
+    /**
+     * Reactivar un ave previamente dada de baja registrando el movimiento de reingreso en el historial.
+     */
+    public function reactivar(Request $request, Ave $ave): JsonResponse
+    {
+        return DB::transaction(function () use ($request, $ave) {
+            $idDivisionDestino = $request->input('id_division_destino');
+
+            // Si se asigna corral de destino, validar existencia y compatibilidad biológica
+            if ($idDivisionDestino) {
+                $division = Division::findOrFail($idDivisionDestino);
+                app(TrasladarAveService::class)->validarCompatibilidadBiologica($ave, $division);
+            }
+
+            // Registrar movimiento histórico de reingreso
+            MovimientoAve::create([
+                'id_ave' => $ave->id,
+                'id_division_origen' => null,
+                'id_division_destino' => $idDivisionDestino ?: null,
+                'fecha' => now(),
+                'motivo' => 'Reingreso',
+                'observaciones' => $request->input('observaciones') ?: 'Reincorporación del ave al inventario activo.',
+            ]);
+
+            $ave->update([
+                'estado' => 'activa',
+                'id_division' => $idDivisionDestino ?: null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "El ave {$ave->codigo} ha sido reactivada e incorporada exitosamente.",
+                'data' => $ave->fresh(['division.casita', 'especie', 'sexo', 'proposito']),
+            ]);
+        });
     }
 
     /**

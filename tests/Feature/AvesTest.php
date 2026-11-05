@@ -345,8 +345,12 @@ class AvesTest extends TestCase
     public function test_puede_dar_de_baja_ave(): void
     {
         $ave = Ave::where('codigo', 'AVE-014')->firstOrFail();
+        $idDivisionOriginal = $ave->id_division;
 
-        $response = $this->deleteJson("/api/v1/aves/{$ave->id}");
+        $response = $this->deleteJson("/api/v1/aves/{$ave->id}", [
+            'motivo' => 'Baja por descarte',
+            'observaciones' => 'Ave con baja productividad',
+        ]);
 
         $response->assertStatus(200)
             ->assertJson([
@@ -357,6 +361,39 @@ class AvesTest extends TestCase
             'id' => $ave->id,
             'estado' => 'salida',
             'id_division' => null,
+        ]);
+
+        $this->assertDatabaseHas('mnt_movimientos_aves', [
+            'id_ave' => $ave->id,
+            'id_division_origen' => $idDivisionOriginal,
+            'id_division_destino' => null,
+            'motivo' => 'Baja por descarte',
+        ]);
+    }
+
+    public function test_puede_reactivar_ave(): void
+    {
+        $ave = Ave::where('codigo', 'AVE-014')->firstOrFail();
+        $ave->update(['estado' => 'salida', 'id_division' => null]);
+
+        $response = $this->patchJson("/api/v1/aves/{$ave->id}/reactivar", [
+            'observaciones' => 'Reincorporada tras periodo de observación',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->assertDatabaseHas('mnt_aves', [
+            'id' => $ave->id,
+            'estado' => 'activa',
+        ]);
+
+        $this->assertDatabaseHas('mnt_movimientos_aves', [
+            'id_ave' => $ave->id,
+            'id_division_origen' => null,
+            'motivo' => 'Reingreso',
         ]);
     }
 }

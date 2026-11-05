@@ -40,6 +40,7 @@ Route::prefix('v1')->group(function () {
         Route::get('catalogos/sexos', [AveController::class, 'sexos']);
         Route::get('catalogos/propositos', [AveController::class, 'propositos']);
         Route::apiResource('aves', AveController::class)->parameters(['aves' => 'ave']);
+        Route::patch('aves/{ave}/reactivar', [AveController::class, 'reactivar']);
         Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
         Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);
 
