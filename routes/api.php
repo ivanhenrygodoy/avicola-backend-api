@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AlimentacionController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AveController;
 use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DivisionController;
+use App\Http\Controllers\Api\V1\HuevoController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -40,5 +42,11 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('aves', AveController::class)->parameters(['aves' => 'ave']);
         Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
         Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);
+
+        // Módulo 4: Alimentación y Producción de Huevos
+        Route::get('catalogos/tipos-alimento', [AlimentacionController::class, 'tipos']);
+        Route::get('alimentos/tipos', [AlimentacionController::class, 'tipos']);
+        Route::apiResource('alimentacion', AlimentacionController::class)->parameters(['alimentacion' => 'alimentacion']);
+        Route::apiResource('huevos', HuevoController::class)->parameters(['huevos' => 'huevo']);
     });
 });

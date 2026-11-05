@@ -42,5 +42,21 @@ class Division extends Model
     {
         return $this->hasMany(Ave::class, 'id_division');
     }
+
+    /**
+     * Registros de alimentación asociados a esta división.
+     */
+    public function registrosAlimentacion(): HasMany
+    {
+        return $this->hasMany(RegistroAlimentacion::class, 'id_division');
+    }
+
+    /**
+     * Registros de postura de huevos recolectados en esta división.
+     */
+    public function registrosHuevos(): HasMany
+    {
+        return $this->hasMany(RegistroHuevo::class, 'id_division');
+    }
 }
 
