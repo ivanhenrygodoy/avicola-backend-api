@@ -27,7 +27,7 @@ class RegistroAlimentacion extends Model
     protected function casts(): array
     {
         return [
-            'fecha' => 'date:Y-m-d',
+            'fecha' => 'date:d-m-Y',
             'cantidad' => 'decimal:2',
             'costo_total' => 'decimal:2',
         ];

@@ -25,7 +25,7 @@ class RegistroHuevo extends Model
     protected function casts(): array
     {
         return [
-            'fecha' => 'date:Y-m-d',
+            'fecha' => 'date:d-m-Y',
             'cantidad_recolectada' => 'integer',
             'cantidad_rotos' => 'integer',
             'cantidad_aprovechables' => 'integer',
