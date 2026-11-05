@@ -78,11 +78,13 @@ class CasitaController extends Controller
 
         $paginated = $query->orderBy('id', 'asc')->paginate($perPage);
 
-        // Estadísticas agregadas globales
+        // Estadísticas agregadas reactivas a los filtros aplicados
+        $casitaIds = (clone $query)->pluck('id');
+
         $stats = [
-            'total_casitas' => Casita::count(),
-            'total_divisiones' => Division::count(),
-            'divisiones_activas' => Division::where('activa', true)->count(),
+            'total_casitas' => $casitaIds->count(),
+            'total_divisiones' => Division::whereIn('id_casita', $casitaIds)->count(),
+            'divisiones_activas' => Division::whereIn('id_casita', $casitaIds)->where('activa', true)->count(),
         ];
 
         return response()->json([

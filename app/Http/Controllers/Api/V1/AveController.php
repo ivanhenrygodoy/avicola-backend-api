@@ -118,13 +118,14 @@ class AveController extends Controller
         $perPage = (int) $request->query('per_page', 10);
         $aves = $query->orderBy('id', 'desc')->paginate($perPage);
 
-        // Estadísticas agregadas globales
+        // Estadísticas agregadas reactivas a los filtros aplicados
+        $statsQuery = (clone $query);
         $stats = [
-            'total_aves' => Ave::count(),
-            'activas_count' => Ave::where('estado', 'activa')->count(),
-            'gallinas_count' => Ave::where('estado', 'activa')->whereHas('especie', fn($q) => $q->where('nombre', 'Gallina'))->count(),
-            'chompipes_count' => Ave::where('estado', 'activa')->whereHas('especie', fn($q) => $q->where('nombre', 'Chompipe'))->count(),
-            'patos_count' => Ave::where('estado', 'activa')->whereHas('especie', fn($q) => $q->where('nombre', 'Pato'))->count(),
+            'total_aves' => (clone $statsQuery)->count(),
+            'activas_count' => (clone $statsQuery)->where('estado', 'activa')->count(),
+            'gallinas_count' => (clone $statsQuery)->whereHas('especie', fn($q) => $q->where('nombre', 'Gallina'))->count(),
+            'chompipes_count' => (clone $statsQuery)->whereHas('especie', fn($q) => $q->where('nombre', 'Chompipe'))->count(),
+            'patos_count' => (clone $statsQuery)->whereHas('especie', fn($q) => $q->where('nombre', 'Pato'))->count(),
         ];
 
         return response()->json([

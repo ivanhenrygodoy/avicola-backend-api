@@ -130,12 +130,16 @@ class AvesTest extends TestCase
         $responseChompipes = $this->getJson("/api/v1/aves?id_especie={$chompipe->id}");
         $responseChompipes->assertStatus(200);
         $this->assertCount(2, $responseChompipes->json('data'));
+        $this->assertEquals(2, $responseChompipes->json('stats.total_aves'));
+        $this->assertEquals(2, $responseChompipes->json('stats.chompipes_count'));
+        $this->assertEquals(0, $responseChompipes->json('stats.gallinas_count'));
 
         // Filtrar por término de búsqueda (nombre: Canela)
         $responseCanela = $this->getJson('/api/v1/aves?search=Canela');
         $responseCanela->assertStatus(200);
         $this->assertCount(1, $responseCanela->json('data'));
         $this->assertEquals('AVE-001', $responseCanela->json('data.0.codigo'));
+        $this->assertEquals(1, $responseCanela->json('stats.total_aves'));
 
         // Filtrar por término de búsqueda por raza (Pichiche)
         $responseRaza = $this->getJson('/api/v1/aves?search=Pichiche');

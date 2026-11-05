@@ -75,6 +75,8 @@ class InstalacionesTest extends TestCase
             ->assertJsonCount(1, 'data');
 
         $this->assertEquals('Casita 1', $response->json('data.0.nombre'));
+        $this->assertEquals(1, $response->json('stats.total_casitas'));
+        $this->assertEquals(2, $response->json('stats.total_divisiones'));
     }
 
     public function test_authenticated_user_can_toggle_casita_active_state(): void
