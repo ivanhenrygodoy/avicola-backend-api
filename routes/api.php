@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DivisionController;
 use App\Http\Controllers\Api\V1\GastoController;
+use App\Http\Controllers\Api\V1\GranjaController;
 use App\Http\Controllers\Api\V1\HuevoController;
 use App\Http\Controllers\Api\V1\ObservacionAveController;
 use App\Http\Controllers\Api\V1\PesoAveController;
@@ -26,13 +27,14 @@ Route::prefix('v1')->group(function () {
 
     // Rutas protegidas del negocio
     Route::middleware('auth:sanctum')->group(function () {
-        // Módulo 2: Instalaciones (Casitas y Divisiones)
+        // Módulo 2: Instalaciones (Granjas, Casitas y Divisiones)
+        Route::get('granjas', [GranjaController::class, 'index']);
         Route::get('instalaciones/tipos', [CasitaController::class, 'tipos']);
         Route::get('casitas/tipos', [CasitaController::class, 'tipos']);
         Route::get('catalogos/tipos-instalacion', [CasitaController::class, 'tipos']);
         Route::apiResource('casitas', CasitaController::class);
         Route::patch('casitas/{casita}/toggle-activa', [CasitaController::class, 'toggleActiva']);
-        Route::apiResource('divisiones', DivisionController::class);
+        Route::apiResource('divisiones', DivisionController::class)->parameters(['divisiones' => 'division']);
         Route::patch('divisiones/{division}/toggle-activa', [DivisionController::class, 'toggleActiva']);
 
         // Módulo 3: Inventario de Aves y Movimientos
