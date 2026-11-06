@@ -5,7 +5,10 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AveController;
 use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DivisionController;
+use App\Http\Controllers\Api\V1\GastoController;
 use App\Http\Controllers\Api\V1\HuevoController;
+use App\Http\Controllers\Api\V1\ObservacionAveController;
+use App\Http\Controllers\Api\V1\PesoAveController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -44,10 +47,24 @@ Route::prefix('v1')->group(function () {
         Route::post('aves/{ave}/trasladar', [AveController::class, 'trasladar']);
         Route::get('aves/{ave}/movimientos', [AveController::class, 'movimientos']);
 
+        // Seguimiento individual de aves (Pesos y Bitácora)
+        Route::get('aves/{ave}/pesos', [PesoAveController::class, 'index']);
+        Route::post('aves/{ave}/pesos', [PesoAveController::class, 'store']);
+        Route::delete('pesos/{peso}', [PesoAveController::class, 'destroy']);
+
+        Route::get('aves/{ave}/observaciones', [ObservacionAveController::class, 'index']);
+        Route::post('aves/{ave}/observaciones', [ObservacionAveController::class, 'store']);
+        Route::delete('observaciones/{observacion}', [ObservacionAveController::class, 'destroy']);
+
         // Módulo 4: Alimentación y Producción de Huevos
         Route::get('catalogos/tipos-alimento', [AlimentacionController::class, 'tipos']);
         Route::get('alimentos/tipos', [AlimentacionController::class, 'tipos']);
         Route::apiResource('alimentacion', AlimentacionController::class)->parameters(['alimentacion' => 'alimentacion']);
         Route::apiResource('huevos', HuevoController::class)->parameters(['huevos' => 'huevo']);
+
+        // Módulo 5: Control de Gastos y Finanzas Operativas
+        Route::get('catalogos/categorias-gastos', [GastoController::class, 'categorias']);
+        Route::get('gastos/categorias', [GastoController::class, 'categorias']);
+        Route::apiResource('gastos', GastoController::class)->parameters(['gastos' => 'gasto']);
     });
 });

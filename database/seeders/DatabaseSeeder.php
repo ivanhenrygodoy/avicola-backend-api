@@ -25,9 +25,11 @@ class DatabaseSeeder extends Seeder
             CatalogoInstalacionesSeeder::class,
             CatalogoAvesSeeder::class,
             CatalogoAlimentosSeeder::class,
+            CategoriaGastosSeeder::class,
             InstalacionesSeeder::class,
             AvesSeeder::class,
             ProduccionSeeder::class,
+            GastosSeeder::class,
         ]);
     }
 }

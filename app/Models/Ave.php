@@ -78,6 +78,22 @@ class Ave extends Model
     }
 
     /**
+     * Historial de registros de peso del ave.
+     */
+    public function pesos(): HasMany
+    {
+        return $this->hasMany(RegistroPeso::class, 'id_ave')->orderBy('fecha', 'desc')->orderBy('id', 'desc');
+    }
+
+    /**
+     * Bitácora de observaciones y notas sanitarias del ave.
+     */
+    public function observaciones(): HasMany
+    {
+        return $this->hasMany(ObservacionAve::class, 'id_ave')->orderBy('fecha', 'desc')->orderBy('id', 'desc');
+    }
+
+    /**
      * Scope para filtrar aves activas.
      */
     public function scopeActiva($query)

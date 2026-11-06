@@ -58,5 +58,13 @@ class Division extends Model
     {
         return $this->hasMany(RegistroHuevo::class, 'id_division');
     }
+
+    /**
+     * Gastos operativos asignados a esta división.
+     */
+    public function gastos(): HasMany
+    {
+        return $this->hasMany(Gasto::class, 'id_division');
+    }
 }
 
