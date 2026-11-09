@@ -202,6 +202,34 @@ Endpoint para consultas operativas en lenguaje natural sin riesgo de inyecciones
 - **Payloads compactos:** Las tools retornan métricas calculadas y muestras de hasta 5 registros para no saturar la ventana de tokens.
 - **Herramientas disponibles:** `consultar_inventario_aves`, `consultar_produccion_huevos`, `consultar_gastos_periodo`, `consultar_ubicacion_ave`, `consultar_raciones_alimento`.
 
+### 5.8 Base de conocimiento RAG y Búsqueda Vectorial (`pgvector`)
+
+Subsistema de recuperación de información técnica zootécnica especializada para enriquecer las respuestas de AviaCore con literatura verificada sin alucinaciones:
+
+- **Infraestructura vectorial:** Extensión `vector` (`pgvector 0.8.7`) en PostgreSQL 16 con índice HNSW (`vector_cosine_ops`) para aceleración de búsqueda por similitud coseno (`<=>`).
+- **Tablas relacionales:**
+  - `ctl_documentos_tecnicos`: Catálogo de manuales con título, especie, versión, autor y estado activo.
+  - `mnt_documentos_fragmentos`: Párrafos técnicos (*chunks*) con metadatos JSON y vector numérico de 768 dimensiones (`vector(768)` en PostgreSQL / `text` en SQLite de testing).
+- **Modelo de Embeddings:** Integración con Google Gemini (`gemini-embedding-001`) configurado con `outputDimensionality: 768` para compatibilidad geométrica exacta con la base de datos.
+- **Servicio Vector Store (`VectorStoreService`):**
+  - Búsqueda nativa con operador `<=>` y filtros opcionales por especie y estado activo en PostgreSQL.
+  - Fallback matemático transparente en PHP para SQLite que permite ejecutar la suite completa de pruebas en memoria sin dependencias externas.
+- **Herramienta autorizada (`ConsultarManualesTecnicosRAGTool`):**
+  - Implementa `AsistenteToolInterface` (`nombre`, `descripcion`, `esquema`, `ejecutar`).
+  - Registrada dinámicamente en `AppServiceProvider::$ASISTENTE_TOOLS` (OCP).
+  - Recibe la duda del operador, genera su vector numérico y extrae los 3 fragmentos zootécnicos más afines.
+- **Manuales técnicos precargados (`IngestaManualesService`):**
+  1. *Manual Técnico de Crianza y Sanidad del Pato Pichiche (Dendrocygna autumnalis)*.
+  2. *Guía Zootécnica para la Producción y Manejo de Pavos y Chompipes*.
+  3. *Manual de Manejo Integral y Bioseguridad de la Gallina Criolla*.
+  - Vías de ingesta: comando Artisan `php artisan avicola:ingestar-manuales` y seeder `DocumentosTecnicosSeeder`.
+- **System Instruction enriquecido (`PromptComposer`):**
+  - Instruye a AviaCore a citar siempre de forma explícita el nombre del manual consultado (ej. *"Según el Manual Técnico de Crianza y Sanidad del Pato Pichiche..."*).
+  - Segrega claramente las preguntas de datos operativos de la granja (BD) de las preguntas zootécnicas de manejo o sanidad (RAG).
+- **Documentación extendida:**
+  - [`docs/aviacore-arquitectura-harness.md`](docs/aviacore-arquitectura-harness.md): Flujo del harness, secuencia, 4 capas de prompt y herramientas operativas.
+  - [`docs/aviacore-rag-embeddings.md`](docs/aviacore-rag-embeddings.md): Funcionamiento de embeddings, distancia coseno, catálogo zootécnico y pipeline RAG.
+
 ---
 
 ## 6. Principios SOLID aplicados
