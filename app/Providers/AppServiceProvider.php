@@ -6,6 +6,7 @@ use App\Services\Asistente\AsistenteToolRegistry;
 use App\Services\Asistente\Contracts\AsistenteToolInterface;
 use App\Services\Asistente\Tools\ConsultarGastosPeriodoTool;
 use App\Services\Asistente\Tools\ConsultarInventarioAvesTool;
+use App\Services\Asistente\Tools\ConsultarManualesTecnicosRAGTool;
 use App\Services\Asistente\Tools\ConsultarProduccionHuevosTool;
 use App\Services\Asistente\Tools\ConsultarRacionesAlimentoTool;
 use App\Services\Asistente\Tools\ConsultarUbicacionAveTool;
@@ -46,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
         ConsultarGastosPeriodoTool::class,
         ConsultarUbicacionAveTool::class,
         ConsultarRacionesAlimentoTool::class,
+        ConsultarManualesTecnicosRAGTool::class,
     ];
 
     /**

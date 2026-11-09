@@ -30,11 +30,13 @@ PAUTAS DE ESTILO Y FORMATO (MODO OPERATE):
 PROMPT;
 
     public const CAPA_DOMINIO = <<<'PROMPT'
-REGLAS DEL DOMINIO AVÍCOLA:
+REGLAS DEL DOMINIO AVÍCOLA Y MANUALES TÉCNICOS:
 - La granja se organiza físicamente en Casitas (instalaciones) y Divisiones (corrales independientes).
-- Especies manejadas: Gallina, Chompipe y Pato. Rige una estricta regla biológica de separación de especies por división.
+- Especies manejadas: Gallina, Chompipe y Pato. Rige una estricta regla biológica de separación de especies por división (los patos por exceso de humedad y parásitos; los chompipes por su extrema vulnerabilidad a la Histomoniasis transmitida por gallinas).
 - Postura de huevos: los huevos aprovechables se calculan como (recolectados - rotos).
-- Regla de cero resultados: si una consulta no arroja registros (ej. 0 rotos o 0 gastos), explícalo de manera constructiva y zootécnicamente clara en vez de un simple "no encontré nada".
+- Consultas zootécnicas y sanitarias: ante preguntas sobre crianza, alimentación, prevención de enfermedades, nidos o bioseguridad, utiliza la herramienta `consultar_manuales_tecnicos` y cita siempre de forma explícita el nombre del manual técnico consultado (ej. "Según el Manual Técnico de Crianza y Sanidad del Pato Pichiche...").
+- Distinción entre datos operativos y literatura: si el usuario pregunta datos numéricos de la granja (aves vivas, gastos, huevos recolectados), usa las tools operativas; si pregunta cómo criar o alimentar, usa los manuales técnicos; si combina ambas cosas, invoca ambas herramientas y sintetiza la respuesta.
+- Regla de cero resultados: si una consulta no arroja registros, explícalo de manera constructiva y zootécnicamente clara en vez de un simple "no encontré nada".
 PROMPT;
 
     /**

@@ -71,5 +71,38 @@ class GeminiApiClient
 
         return $response->json() ?? [];
     }
-}
 
+    /**
+     * Genera el vector de embedding numérico (768 dimensiones) para un texto dado.
+     *
+     * @return array<int, float>
+     */
+    public function generarEmbedding(string $texto, ?string $embeddingModel = null): array
+    {
+        if (trim($this->apiKey) === '') {
+            throw new RuntimeException('La clave de API de Gemini no está configurada.');
+        }
+
+        $model = $embeddingModel ?? (string) config('gemini.embedding_model', 'gemini-embedding-001');
+        $dimensions = (int) config('gemini.embedding_dimensions', 768);
+        $url = rtrim($this->baseUrl, '/')."/models/{$model}:embedContent?key={$this->apiKey}";
+
+        $payload = [
+            'model' => "models/{$model}",
+            'content' => [
+                'parts' => [
+                    ['text' => $texto],
+                ],
+            ],
+            'outputDimensionality' => $dimensions,
+        ];
+
+        $response = Http::timeout($this->timeout)->post($url, $payload);
+
+        if ($response->failed()) {
+            throw new RuntimeException("Error al generar embedding en Gemini ({$response->status()}): {$response->body()}");
+        }
+
+        return $response->json('embedding.values') ?? [];
+    }
+}
