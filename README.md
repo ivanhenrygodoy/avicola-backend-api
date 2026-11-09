@@ -188,6 +188,20 @@ Dos endpoints, ambos con agregados en SQL (sin cargar colecciones de modelos):
 
 La aplicación guarda `timestamps` en UTC, pero "hoy" y "este mes" se calculan con `config('avicola.timezone')` (`America/El_Salvador`) mediante el objeto de valor `PeriodoDashboard`. Un registro hecho a las 23:30 hora local cuenta en su día aunque ya sea el siguiente en UTC.
 
+### 5.7 Asistente virtual con Function Calling (`AsistenteController`)
+
+Endpoint para consultas operativas en lenguaje natural sin riesgo de inyecciones de SQL arbitrario:
+
+| Método | Ruta | Parámetros | Devuelve |
+|---|---|---|---|
+| POST | `/asistente/chat` | `mensaje` (string <= 1000), `historial` (array <= 20) | `respuesta` (texto), `herramientas_utilizadas` (array) |
+
+- **Diseño (SRP + OCP + DIP):** Cada herramienta implementa `AsistenteToolInterface` (`nombre`, `descripcion`, `esquema`, `ejecutar`) en `app/Services/Asistente/Tools/`. `AppServiceProvider` las inyecta en `AsistenteToolRegistry`.
+- **System Instruction en 4 capas (`PromptComposer`):** Harness Base (fuente de verdad), Seguridad (anti-prompt-injection), Estilo (1 a 3 oraciones, `DD-MM-YYYY`, máximo 1 emoji) y Dominio Avícola (casitas, divisiones, segregación biológica).
+- **Anti-IDOR (`contexto_fijo`):** El `id_usuario` autenticado por Sanctum se inyecta desde la sesión del backend y nunca se confía al LLM.
+- **Payloads compactos:** Las tools retornan métricas calculadas y muestras de hasta 5 registros para no saturar la ventana de tokens.
+- **Herramientas disponibles:** `consultar_inventario_aves`, `consultar_produccion_huevos`, `consultar_gastos_periodo`, `consultar_ubicacion_ave`, `consultar_raciones_alimento`.
+
 ---
 
 ## 6. Principios SOLID aplicados

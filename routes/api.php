@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AlimentacionController;
+use App\Http\Controllers\Api\V1\AsistenteController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AveController;
 use App\Http\Controllers\Api\V1\CasitaController;
@@ -73,5 +74,8 @@ Route::prefix('v1')->group(function () {
         // Módulo 6: Dashboard Analítico
         Route::get('dashboard/resumen', [DashboardController::class, 'resumen']);
         Route::get('dashboard/actividad', [DashboardController::class, 'actividad']);
+
+        // Módulo 7: Asistente Virtual Inteligente (IA Function Calling)
+        Route::post('asistente/chat', [AsistenteController::class, 'chat']);
     });
 });
