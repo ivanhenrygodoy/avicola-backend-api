@@ -16,6 +16,7 @@ use App\Services\Asistente\AsistenteOrquestadorService;
 use App\Services\Asistente\AsistenteToolRegistry;
 use App\Services\Asistente\Contracts\AsistenteToolInterface;
 use App\Services\Asistente\GeminiApiClient;
+use App\Services\Asistente\ModuloNavigationResolver;
 use App\Services\Asistente\PromptComposer;
 use App\Services\Asistente\Tools\ConsultarGastosPeriodoTool;
 use App\Services\Asistente\Tools\ConsultarInventarioAvesTool;
@@ -588,8 +589,25 @@ class AsistenteTest extends TestCase
                 'data' => [
                     'respuesta' => 'El asistente de la granja está en línea.',
                     'herramientas_utilizadas' => [],
+                    'sugerencias_modulos' => [],
                 ],
             ]);
+    }
+
+    public function test_modulo_navigation_resolver_resuelve_sugerencias_y_sanea_herramientas(): void
+    {
+        $resolver = new ModuloNavigationResolver();
+
+        $textoConTool = 'Te sugiero utilizar `consultar_produccion_huevos` para revisar la postura de hoy.';
+        $textoLimpio = $resolver->sanitizarRespuesta($textoConTool);
+
+        $this->assertStringNotContainsString('consultar_produccion_huevos', $textoLimpio);
+        $this->assertStringContainsString('Módulo de Producción', $textoLimpio);
+
+        $sugerencias = $resolver->resolver($textoLimpio, ['consultar_produccion_huevos']);
+        $this->assertNotEmpty($sugerencias);
+        $this->assertSame('/produccion', $sugerencias[0]['ruta']);
+        $this->assertSame('Ir al Módulo de Producción', $sugerencias[0]['titulo']);
     }
 
     public function test_endpoint_chat_retorna_error_controlado_si_falla_proveedor_ia(): void
@@ -602,7 +620,7 @@ class AsistenteTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/asistente/chat', [
-            'mensaje' => 'Hola',
+            'mensaje' => '¿Cuántas aves vivas tenemos hoy?',
         ]);
 
         $response->assertStatus(503)
@@ -612,5 +630,45 @@ class AsistenteTest extends TestCase
 
         $this->assertStringContainsString('AviaCore está experimentando una pausa temporal', $response->json('message'));
         $this->assertStringNotContainsString('API Unavailable', $response->json('message'));
+    }
+
+    public function test_saludo_detector_service_responde_sin_consumir_tokens_ni_sugerir_modulos(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        // Aseguramos que NO se realice ninguna petición HTTP a Gemini
+        Http::fake([
+            '*' => Http::response(['error' => 'No debio llamar a Gemini'], 500),
+        ]);
+
+        $saludos = ['hola', 'Buenos días!', 'muchas gracias', '¿quién eres?'];
+
+        foreach ($saludos as $saludo) {
+            $response = $this->postJson('/api/v1/asistente/chat', [
+                'mensaje' => $saludo,
+            ]);
+
+            $response->assertStatus(200)
+                ->assertJson([
+                    'success' => true,
+                    'data' => [
+                        'herramientas_utilizadas' => [],
+                        'sugerencias_modulos' => [],
+                    ],
+                ]);
+
+            $this->assertNotEmpty($response->json('data.respuesta'));
+        }
+    }
+
+    public function test_modulo_navigation_resolver_no_sugiere_modulos_en_saludos_o_textos_genericos(): void
+    {
+        $resolver = new ModuloNavigationResolver();
+
+        // Texto genérico o saludo que menciona palabras de la granja sin invitar a gestionar
+        $textoBienvenida = '¡Hola! Soy AviaCore, tu asistente. ¿En qué te puedo ayudar hoy con el control de inventario, postura, alimentación o finanzas?';
+        $sugerencias = $resolver->resolver($textoBienvenida, []);
+
+        $this->assertEmpty($sugerencias, 'No debe sugerir módulos en saludos o textos de bienvenida genéricos');
     }
 }
