@@ -21,6 +21,7 @@ class ChatRequest extends FormRequest
             'historial' => ['nullable', 'array', 'max:20'],
             'historial.*.role' => ['required_with:historial', 'string', 'in:user,model'],
             'historial.*.parts' => ['required_with:historial', 'array'],
+            'uuid_conversacion' => ['nullable', 'uuid'],
         ];
     }
 
@@ -39,4 +40,3 @@ class ChatRequest extends FormRequest
         ];
     }
 }
-

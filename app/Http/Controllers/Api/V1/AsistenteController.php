@@ -25,7 +25,12 @@ class AsistenteController extends Controller
         ];
 
         try {
-            $resultado = $orquestador->procesarConversacion($mensaje, $historial, $contextoFijo);
+            $resultado = $orquestador->procesarConversacion(
+                $mensaje,
+                $historial,
+                $contextoFijo,
+                $request->input('uuid_conversacion')
+            );
 
             return response()->json([
                 'success' => true,
@@ -45,4 +50,3 @@ class AsistenteController extends Controller
         }
     }
 }
-

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AlimentacionController;
+use App\Http\Controllers\Api\V1\AsistenteBenchmarkController;
 use App\Http\Controllers\Api\V1\AsistenteController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AveController;
@@ -77,5 +78,12 @@ Route::prefix('v1')->group(function () {
 
         // Módulo 7: Asistente Virtual Inteligente (IA Function Calling)
         Route::post('asistente/chat', [AsistenteController::class, 'chat']);
+
+        // Benchmark AviaCore: auditoría de las interacciones del asistente
+        Route::prefix('asistente/benchmark')->group(function () {
+            Route::get('estadisticas', [AsistenteBenchmarkController::class, 'estadisticas']);
+            Route::get('logs', [AsistenteBenchmarkController::class, 'logs']);
+            Route::get('logs/{log}', [AsistenteBenchmarkController::class, 'show']);
+        });
     });
 });
