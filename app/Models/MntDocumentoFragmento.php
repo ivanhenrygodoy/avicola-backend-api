@@ -12,7 +12,7 @@ class MntDocumentoFragmento extends Model
 
     protected $table = 'mnt_documentos_fragmentos';
 
-    protected $primaryKey = 'id_fragmento';
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'id_documento_tecnico',
@@ -28,6 +28,6 @@ class MntDocumentoFragmento extends Model
 
     public function documentoTecnico(): BelongsTo
     {
-        return $this->belongsTo(CtlDocumentoTecnico::class, 'id_documento_tecnico', 'id_documento_tecnico');
+        return $this->belongsTo(CtlDocumentoTecnico::class, 'id_documento_tecnico', 'id');
     }
 }

@@ -19,7 +19,7 @@ return new class extends Migration
         }
 
         Schema::create('ctl_documentos_tecnicos', function (Blueprint $table) {
-            $table->id('id_documento_tecnico');
+            $table->id();
             $table->string('titulo', 150);
             $table->string('especie', 50)->nullable();
             $table->text('descripcion')->nullable();
@@ -32,9 +32,9 @@ return new class extends Migration
         });
 
         Schema::create('mnt_documentos_fragmentos', function (Blueprint $table) use ($driver) {
-            $table->id('id_fragmento');
+            $table->id();
             $table->foreignId('id_documento_tecnico')
-                ->constrained('ctl_documentos_tecnicos', 'id_documento_tecnico')
+                ->constrained('ctl_documentos_tecnicos', 'id')
                 ->cascadeOnDelete();
             $table->string('titulo_seccion', 150);
             $table->text('contenido');

@@ -135,7 +135,7 @@ class IngestaManualesService
                 }
 
                 $this->vectorStore->guardarFragmento(
-                    $documento->id_documento_tecnico,
+                    $documento->id,
                     $sec['titulo'],
                     $sec['contenido'],
                     $vector,

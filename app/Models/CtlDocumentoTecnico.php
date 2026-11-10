@@ -12,7 +12,7 @@ class CtlDocumentoTecnico extends Model
 
     protected $table = 'ctl_documentos_tecnicos';
 
-    protected $primaryKey = 'id_documento_tecnico';
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'titulo',
@@ -29,6 +29,6 @@ class CtlDocumentoTecnico extends Model
 
     public function fragmentos(): HasMany
     {
-        return $this->hasMany(MntDocumentoFragmento::class, 'id_documento_tecnico', 'id_documento_tecnico');
+        return $this->hasMany(MntDocumentoFragmento::class, 'id_documento_tecnico', 'id');
     }
 }

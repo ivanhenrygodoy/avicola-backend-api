@@ -62,10 +62,10 @@ class VectorStoreService
         $vectorStr = '['.implode(',', $vectorQuery).']';
 
         $query = DB::table('mnt_documentos_fragmentos as f')
-            ->join('ctl_documentos_tecnicos as d', 'd.id_documento_tecnico', '=', 'f.id_documento_tecnico')
+            ->join('ctl_documentos_tecnicos as d', 'd.id', '=', 'f.id_documento_tecnico')
             ->where('d.activo', true)
             ->select([
-                'f.id_fragmento',
+                'f.id',
                 'f.id_documento_tecnico',
                 'f.titulo_seccion',
                 'f.contenido',
@@ -88,7 +88,8 @@ class VectorStoreService
             ->get()
             ->map(function ($row) {
                 return [
-                    'id_fragmento' => $row->id_fragmento,
+                    'id' => $row->id,
+                    'id_fragmento' => $row->id,
                     'id_documento_tecnico' => $row->id_documento_tecnico,
                     'documento_titulo' => $row->documento_titulo,
                     'documento_especie' => $row->documento_especie,
@@ -111,10 +112,10 @@ class VectorStoreService
     private function buscarFallbackSqlite(array $vectorQuery, int $limite, ?string $especie): array
     {
         $query = DB::table('mnt_documentos_fragmentos as f')
-            ->join('ctl_documentos_tecnicos as d', 'd.id_documento_tecnico', '=', 'f.id_documento_tecnico')
+            ->join('ctl_documentos_tecnicos as d', 'd.id', '=', 'f.id_documento_tecnico')
             ->where('d.activo', true)
             ->select([
-                'f.id_fragmento',
+                'f.id',
                 'f.id_documento_tecnico',
                 'f.titulo_seccion',
                 'f.contenido',
@@ -147,7 +148,8 @@ class VectorStoreService
             $distancia = $this->calcularDistanciaCoseno($vectorQuery, $vectorRow);
 
             $calculados[] = [
-                'id_fragmento' => $frag->id_fragmento,
+                'id' => $frag->id,
+                'id_fragmento' => $frag->id,
                 'id_documento_tecnico' => $frag->id_documento_tecnico,
                 'documento_titulo' => $frag->documento_titulo,
                 'documento_especie' => $frag->documento_especie,
