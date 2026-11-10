@@ -76,12 +76,15 @@ class ConsultarManualesTecnicosRAGTool implements AsistenteToolInterface
         if (empty($fragmentos)) {
             return [
                 'total_fragmentos' => 0,
-                'mensaje' => 'No se encontraron fragmentos técnicos en los manuales para la consulta especificada.',
+                'encontrado' => false,
+                'mensaje' => 'No se encontraron fragmentos técnicos en los manuales oficiales de la granja para la consulta especificada.',
+                'orientacion_pedagogica' => 'Explica con calidez y pedagogía que los manuales técnicos oficiales de la granja (enfocados en Gallina Criolla, Chompipe y Pato Pichiche) no disponen de lineamientos específicos o comprobados para esta consulta o especie. Recomiéndale al operario consultar directamente con el médico veterinario o encargado zootécnico antes de tomar decisiones de manejo o convivencia, o invítale a formular su consulta sobre las temáticas y especies cubiertas.',
             ];
         }
 
         return [
             'total_fragmentos' => count($fragmentos),
+            'encontrado' => true,
             'fragmentos' => array_map(function ($f) {
                 return [
                     'documento' => $f['documento_titulo'],

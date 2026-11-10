@@ -135,7 +135,7 @@ La base de datos PostgreSQL 16 utiliza la extensión oficial `vector` (`pgvector
 ┌─────────────────────────────────────────────────────────────────┐
 │                     ctl_documentos_tecnicos                     │
 ├─────────────────────────┬───────────────────────────────────────┤
-│ id_documento_tecnico    │ BIGSERIAL (PK)                        │
+│ id                      │ BIGSERIAL (PK)                        │
 │ titulo                  │ VARCHAR(150)                          │
 │ especie                 │ VARCHAR(50) NULL                      │
 │ descripcion             │ TEXT NULL                             │
@@ -151,7 +151,7 @@ La base de datos PostgreSQL 16 utiliza la extensión oficial `vector` (`pgvector
 ┌─────────────────────────────────────────────────────────────────┐
 │                    mnt_documentos_fragmentos                    │
 ├─────────────────────────┬───────────────────────────────────────┤
-│ id_fragmento            │ BIGSERIAL (PK)                        │
+│ id                      │ BIGSERIAL (PK)                        │
 │ id_documento_tecnico    │ BIGINT (FK -> ctl_documentos_tecnicos)│
 │ titulo_seccion          │ VARCHAR(150)                          │
 │ contenido               │ TEXT                                  │
@@ -228,10 +228,11 @@ La clase [`VectorStoreService.php`] encapsula tanto la persistencia de fragmento
 $vectorStr = '[' . implode(',', $vectorQuery) . ']';
 
 $query = DB::table('mnt_documentos_fragmentos as f')
-    ->join('ctl_documentos_tecnicos as d', 'd.id_documento_tecnico', '=', 'f.id_documento_tecnico')
+    ->join('ctl_documentos_tecnicos as d', 'd.id', '=', 'f.id_documento_tecnico')
     ->where('d.activo', true)
     ->select([
-        'f.id_fragmento',
+        'f.id',
+        'f.id_documento_tecnico',
         'f.titulo_seccion',
         'f.contenido',
         'd.titulo as documento_titulo',
@@ -382,6 +383,7 @@ El subsistema RAG cuenta con **5 pruebas automatizadas exhaustivas** en [`tests/
 3. `test_vector_store_service_guarda_y_busca_fragmentos_similares`: Valida el cálculo de similitud coseno y ordenamiento por relevancia.
 4. `test_ingesta_manuales_service_crea_catalogo_y_fragmentos`: Valida la ingesta estructurada de los 3 manuales maestros y sus fragmentos.
 5. `test_consultar_manuales_tecnicos_rag_tool_ejecuta_correctamente`: Valida el ciclo completo de la herramienta RAG recibiendo preguntas en lenguaje natural y filtrando por especie.
+6. `test_consultar_manuales_tecnicos_rag_tool_retorna_orientacion_pedagogica_cuando_no_hay_coincidencias`: Valida la orientación pedagógica ante consultas no documentadas.
 
 ```bash
 docker compose -f avicola-backend-api/docker-compose.yml exec \
@@ -391,6 +393,24 @@ docker compose -f avicola-backend-api/docker-compose.yml exec \
   api php artisan test --filter=RagTest
 ```
 
-**Resultado:** 5 pruebas pasadas (21 aserciones).  
-**Suite Global:** 100 pruebas pasadas (787 aserciones) con 0 fallos.
+**Resultado:** 6 pruebas pasadas (25 aserciones).
+
+---
+
+## 8. Resiliencia, Seguridad contra Fuga de Información y Pedagogía ante Cero Resultados
+
+### 8.1. Protección contra Fuga de Información (OWASP API Security)
+En caso de intermitencias de red o demoras del proveedor LLM:
+- **Cero Exposición Técnica:** Se eliminó la concatenación de excepciones directas (`$e->getMessage()`) en las respuestas HTTP de la API para no filtrar librerías internas (`libcurl`), códigos de error (`cURL 28`), endpoints ni parámetros confidenciales.
+- **Registro Seguro Interno:** El error técnico completo con stack trace se guarda privadamente en el log del backend mediante `Log::error(...)`.
+- **Mensaje Pedagógico al Operador:** La API retorna un mensaje formativo y respetuoso, indicando que el servicio experimentó una demora momentánea y solicitando reintentar en unos instantes.
+
+### 8.2. Resiliencia de Conexión (Timeout y Reintentos)
+- Se extendió el tiempo de espera por petición de 30 a 45 segundos (`GEMINI_TIMEOUT=45`).
+- Se incorporó política de reintento automático con retroceso exponencial (`retry(2, 500)`) para mitigar micro-cortes transitorios de la red.
+
+### 8.3. Manejo Pedagógico ante Ausencia de Literatura (RAG) o Registros Operativos
+- **Temáticas Fuera de Manuales:** Si un operario pregunta sobre temas o especies no contemplados en la literatura oficial de la granja (la cual cubre Gallinas Criollas, Chompipes y Patos Pichiches), la tool `consultar_manuales_tecnicos` retorna `orientacion_pedagogica`. Gemini explica con empatía y claridad que no existe literatura validada en la biblioteca y aconseja consultar al médico veterinario o encargado zootécnico antes de tomar decisiones de manejo.
+- **Búsquedas Operativas sin Registros:** Cuando una consulta de inventario, postura, alimentación o finanzas arroja 0 registros, AviaCore no responde con un seco "no encontré nada". Detalla los parámetros consultados, la causa operativa probable (día sin registros cargados, división desocupada) y sugiere al operario verificar la fecha o confirmar con el personal de campo.
+
 

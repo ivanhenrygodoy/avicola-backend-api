@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Asistente\ChatRequest;
 use App\Services\Asistente\AsistenteOrquestadorService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class AsistenteController extends Controller
@@ -31,9 +32,15 @@ class AsistenteController extends Controller
                 'data' => $resultado,
             ]);
         } catch (Throwable $e) {
+            Log::error('Error en servicio Asistente Virtual AviaCore: '.$e->getMessage(), [
+                'usuario' => $request->user()?->id,
+                'mensaje_preview' => mb_substr($mensaje, 0, 80),
+                'exception' => $e,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'El servicio de IA no está disponible temporalmente. '.$e->getMessage(),
+                'message' => 'El servicio de asistencia inteligente AviaCore está experimentando una pausa temporal o demora de conexión con el proveedor de IA. Por favor, intenta realizar tu consulta nuevamente en unos instantes.',
             ], 503);
         }
     }

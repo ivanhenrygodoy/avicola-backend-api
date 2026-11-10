@@ -21,5 +21,5 @@ return [
 
     'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
 
-    'timeout' => (int) env('GEMINI_TIMEOUT', 30),
+    'timeout' => (int) env('GEMINI_TIMEOUT', 45),
 ];

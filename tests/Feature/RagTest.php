@@ -27,7 +27,7 @@ class RagTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('ctl_documentos_tecnicos', [
-            'id_documento_tecnico' => $documento->id_documento_tecnico,
+            'id' => $documento->id,
             'titulo' => 'Manual Técnico del Pato Pichiche',
             'especie' => 'Pato',
         ]);
@@ -40,12 +40,12 @@ class RagTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('mnt_documentos_fragmentos', [
-            'id_fragmento' => $fragmento->id_fragmento,
+            'id' => $fragmento->id,
             'titulo_seccion' => 'Alimentación en Etapa de Crecimiento',
         ]);
 
         $this->assertInstanceOf(CtlDocumentoTecnico::class, $fragmento->documentoTecnico);
-        $this->assertEquals($documento->id_documento_tecnico, $fragmento->documentoTecnico->id_documento_tecnico);
+        $this->assertEquals($documento->id, $fragmento->documentoTecnico->id);
         $this->assertCount(1, $documento->fragmentos);
     }
 
@@ -81,7 +81,7 @@ class RagTest extends TestCase
         $vectorStore = app(VectorStoreService::class);
 
         $vectorStore->guardarFragmento(
-            $documento->id_documento_tecnico,
+            $documento->id,
             'Nutrición y Raciones',
             'Ración diaria balanceada para patos.',
             $vectorNutricion,
@@ -89,7 +89,7 @@ class RagTest extends TestCase
         );
 
         $vectorStore->guardarFragmento(
-            $documento->id_documento_tecnico,
+            $documento->id,
             'Vacunación y Sanidad',
             'Plan de vacunación contra Newcastle.',
             $vectorSanidad,
@@ -148,5 +148,19 @@ class RagTest extends TestCase
         $this->assertGreaterThan(0, $resultado['total_fragmentos']);
         $this->assertNotEmpty($resultado['fragmentos']);
         $this->assertStringContainsString('Pato', $resultado['fragmentos'][0]['documento']);
+    }
+
+    public function test_consultar_manuales_tecnicos_rag_tool_retorna_orientacion_pedagogica_cuando_no_hay_coincidencias(): void
+    {
+        $tool = app(ConsultarManualesTecnicosRAGTool::class);
+        $resultado = $tool->ejecutar([
+            'consulta' => '¿Cómo criar avestruces?',
+            'especie' => 'Avestruz',
+        ], ['id_usuario' => 1]);
+
+        $this->assertSame(0, $resultado['total_fragmentos']);
+        $this->assertFalse($resultado['encontrado']);
+        $this->assertArrayHasKey('orientacion_pedagogica', $resultado);
+        $this->assertStringContainsString('veterinario', $resultado['orientacion_pedagogica']);
     }
 }

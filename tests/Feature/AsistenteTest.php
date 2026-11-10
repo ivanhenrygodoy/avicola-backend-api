@@ -609,5 +609,8 @@ class AsistenteTest extends TestCase
             ->assertJson([
                 'success' => false,
             ]);
+
+        $this->assertStringContainsString('AviaCore está experimentando una pausa temporal', $response->json('message'));
+        $this->assertStringNotContainsString('API Unavailable', $response->json('message'));
     }
 }
