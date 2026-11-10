@@ -22,6 +22,11 @@ class ConsultarManualesTecnicosRAGTool implements AsistenteToolInterface
         return 'consultar_manuales_tecnicos';
     }
 
+    public function tablasConsultadas(): array
+    {
+        return ['mnt_documentos_fragmentos', 'ctl_documentos_tecnicos'];
+    }
+
     public function descripcion(): string
     {
         return 'Consulta la base de conocimiento técnico y manuales zootécnicos sobre crianza, nutrición, sanidad, prevención de enfermedades y bioseguridad de aves (gallinas criollas, chompipes/pavos y patos pichiches). Debe utilizarse siempre que el usuario haga preguntas sobre cuidados, requerimientos de alimentación, enfermedades o recomendaciones biológicas.';

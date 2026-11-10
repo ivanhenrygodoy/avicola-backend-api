@@ -23,6 +23,13 @@ interface AsistenteToolInterface
     public function esquema(): array;
 
     /**
+     * Tablas de base de datos que la herramienta lee al ejecutarse (se registra en la auditoría del Benchmark).
+     *
+     * @return array<int, string>
+     */
+    public function tablasConsultadas(): array;
+
+    /**
      * Ejecuta la lógica de consulta y retorna un array asociativo con datos compactos.
      *
      * @param  array<string, mixed>  $argumentos  Argumentos generados por el LLM.

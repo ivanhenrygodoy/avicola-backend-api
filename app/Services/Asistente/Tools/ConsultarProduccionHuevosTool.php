@@ -18,6 +18,11 @@ class ConsultarProduccionHuevosTool implements AsistenteToolInterface
         return 'Consulta la producción de huevos (recolectados, rotos, aprovechables y porcentaje de rotura) en un periodo de tiempo o división.';
     }
 
+    public function tablasConsultadas(): array
+    {
+        return ['mnt_registros_huevos'];
+    }
+
     public function esquema(): array
     {
         return [
@@ -101,4 +106,3 @@ class ConsultarProduccionHuevosTool implements AsistenteToolInterface
         ];
     }
 }
-

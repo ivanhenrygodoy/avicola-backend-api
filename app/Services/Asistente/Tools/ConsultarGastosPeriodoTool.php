@@ -19,6 +19,11 @@ class ConsultarGastosPeriodoTool implements AsistenteToolInterface
         return 'Consulta los gastos operativos y compras de la granja filtrando por mes, año, categoría o rango de fechas.';
     }
 
+    public function tablasConsultadas(): array
+    {
+        return ['mnt_gastos', 'ctl_categorias_gastos'];
+    }
+
     public function esquema(): array
     {
         return [
@@ -103,4 +108,3 @@ class ConsultarGastosPeriodoTool implements AsistenteToolInterface
         ];
     }
 }
-

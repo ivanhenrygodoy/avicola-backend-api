@@ -19,6 +19,11 @@ class ConsultarRacionesAlimentoTool implements AsistenteToolInterface
         return 'Consulta las raciones de alimento suministradas a las divisiones/corrales (kilos y costos acumulados).';
     }
 
+    public function tablasConsultadas(): array
+    {
+        return ['mnt_registros_alimentacion', 'ctl_tipos_alimento', 'mnt_divisiones', 'mnt_casitas'];
+    }
+
     public function esquema(): array
     {
         return [
@@ -117,4 +122,3 @@ class ConsultarRacionesAlimentoTool implements AsistenteToolInterface
         ];
     }
 }
-

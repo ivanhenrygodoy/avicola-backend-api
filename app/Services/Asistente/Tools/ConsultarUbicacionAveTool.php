@@ -18,6 +18,11 @@ class ConsultarUbicacionAveTool implements AsistenteToolInterface
         return 'Localiza un ave por su código identificador (ej. "AVE-001") o nombre (ej. "Rubia"), retornando su casita, corral, peso y estado.';
     }
 
+    public function tablasConsultadas(): array
+    {
+        return ['mnt_aves', 'ctl_especie', 'ctl_sexo', 'ctl_proposito', 'mnt_divisiones', 'mnt_casitas', 'mnt_movimientos_aves'];
+    }
+
     public function esquema(): array
     {
         return [
@@ -95,4 +100,3 @@ class ConsultarUbicacionAveTool implements AsistenteToolInterface
         ];
     }
 }
-

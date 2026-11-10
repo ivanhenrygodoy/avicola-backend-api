@@ -18,6 +18,11 @@ class ConsultarInventarioAvesTool implements AsistenteToolInterface
         return 'Consulta la población y el inventario de aves de la granja con filtros opcionales por especie, sexo, corral o estado.';
     }
 
+    public function tablasConsultadas(): array
+    {
+        return ['mnt_aves', 'ctl_especie', 'ctl_sexo', 'mnt_divisiones', 'mnt_casitas'];
+    }
+
     public function esquema(): array
     {
         return [
@@ -109,4 +114,3 @@ class ConsultarInventarioAvesTool implements AsistenteToolInterface
         ];
     }
 }
-

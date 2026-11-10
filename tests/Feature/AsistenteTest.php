@@ -72,6 +72,11 @@ class AsistenteTest extends TestCase
                 return 'Descripción de prueba.';
             }
 
+            public function tablasConsultadas(): array
+            {
+                return [];
+            }
+
             public function esquema(): array
             {
                 return [
@@ -114,6 +119,11 @@ class AsistenteTest extends TestCase
             public function descripcion(): string
             {
                 return 'Prueba de ejecución.';
+            }
+
+            public function tablasConsultadas(): array
+            {
+                return [];
             }
 
             public function esquema(): array
@@ -519,6 +529,11 @@ class AsistenteTest extends TestCase
                 return 'Tool infinita';
             }
 
+            public function tablasConsultadas(): array
+            {
+                return [];
+            }
+
             public function esquema(): array
             {
                 return ['type' => 'OBJECT', 'properties' => []];
@@ -596,7 +611,7 @@ class AsistenteTest extends TestCase
 
     public function test_modulo_navigation_resolver_resuelve_sugerencias_y_sanea_herramientas(): void
     {
-        $resolver = new ModuloNavigationResolver();
+        $resolver = new ModuloNavigationResolver;
 
         $textoConTool = 'Te sugiero utilizar `consultar_produccion_huevos` para revisar la postura de hoy.';
         $textoLimpio = $resolver->sanitizarRespuesta($textoConTool);
@@ -663,7 +678,7 @@ class AsistenteTest extends TestCase
 
     public function test_modulo_navigation_resolver_no_sugiere_modulos_en_saludos_o_textos_genericos(): void
     {
-        $resolver = new ModuloNavigationResolver();
+        $resolver = new ModuloNavigationResolver;
 
         // Texto genérico o saludo que menciona palabras de la granja sin invitar a gestionar
         $textoBienvenida = '¡Hola! Soy AviaCore, tu asistente. ¿En qué te puedo ayudar hoy con el control de inventario, postura, alimentación o finanzas?';
