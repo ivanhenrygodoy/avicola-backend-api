@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AveController;
 use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DepuracionLogsAgenteController;
 use App\Http\Controllers\Api\V1\DivisionController;
 use App\Http\Controllers\Api\V1\GastoController;
 use App\Http\Controllers\Api\V1\GranjaController;
@@ -84,6 +85,8 @@ Route::prefix('v1')->group(function () {
             Route::get('estadisticas', [AsistenteBenchmarkController::class, 'estadisticas']);
             Route::get('logs', [AsistenteBenchmarkController::class, 'logs']);
             Route::get('logs/{log}', [AsistenteBenchmarkController::class, 'show']);
+            Route::get('depuracion', [DepuracionLogsAgenteController::class, 'vistaPrevia']);
+            Route::delete('depuracion', [DepuracionLogsAgenteController::class, 'destroy']);
         });
     });
 });

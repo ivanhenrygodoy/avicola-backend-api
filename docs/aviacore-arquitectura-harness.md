@@ -61,11 +61,13 @@ avicola-backend-api/
 │   ├── Http/
 │   │   ├── Controllers/Api/V1/
 │   │   │   ├── AsistenteController.php            # POST /asistente/chat (delgado: valida, inyecta contexto, delega)
-│   │   │   └── AsistenteBenchmarkController.php   # GET /asistente/benchmark/* (solo lectura)
+│   │   │   ├── AsistenteBenchmarkController.php   # GET /asistente/benchmark/* (estadísticas, logs y detalle)
+│   │   │   └── DepuracionLogsAgenteController.php # GET/DELETE /asistente/benchmark/depuracion (purga manual)
 │   │   └── Requests/Asistente/
 │   │       ├── ChatRequest.php                    # mensaje (1-1000), historial (<=20), uuid_conversacion
 │   │       ├── EstadisticasBenchmarkRequest.php   # dias = 7 | 30
-│   │       └── FiltroLogsAgenteRequest.php        # filtros del listado de logs
+│   │       ├── FiltroLogsAgenteRequest.php        # filtros del listado de logs
+│   │       └── DepuracionLogsAgenteRequest.php    # meses = 3 | 6 | 12 (lista cerrada)
 │   ├── Models/
 │   │   ├── FuncionLogAgent.php                    # turno auditado (mnt_funcion_log_agent)
 │   │   ├── FuncionLogAgentTool.php                # tool ejecutada en un turno
@@ -95,7 +97,8 @@ avicola-backend-api/
 │       └── Benchmark/                             # auditoría
 │           ├── RastroTurno.php                    #   acumula lo ocurrido en un turno (sin tocar la BD)
 │           ├── FuncionLogAgentService.php         #   persiste el turno; nunca lanza
-│           └── BenchmarkConsultaService.php       #   estadísticas, listado y detalle (solo lectura)
+│           ├── BenchmarkConsultaService.php       #   estadísticas, listado y detalle
+│           └── DepuracionLogsAgenteService.php    #   vista previa y borrado por lotes (3, 6, 12 meses)
 ├── config/
 │   ├── gemini.php                                 # api_key, modelo, timeout, embeddings
 │   └── guardrails.php                             # mensajes, vocabulario de la granja y patrones

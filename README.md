@@ -287,7 +287,7 @@ Cada turno se guarda en **`mnt_funcion_log_agent`** (un registro por turno) y **
 - **El chat no depende del registro:** `FuncionLogAgentService::registrar()` nunca lanza; si falla, lo deja en `laravel.log` y la respuesta al operario sale igual. Ante un error del proveedor se registra `resultado = error` y se relanza para que el controlador conserve su respuesta 503.
 - **Sin purga automática por ahora:** los logs se guardan indefinidamente (depuración planificada, ver `Proyects-IA/docs/superpowers/plans/2026-11-10-depuracion-logs-benchmark.md`).
 
-#### API del Benchmark (`AsistenteBenchmarkController`, solo lectura)
+#### API del Benchmark (`AsistenteBenchmarkController` y `DepuracionLogsAgenteController`)
 
 Todas bajo `auth:sanctum` (cualquier usuario autenticado; aún no hay roles) en `/api/v1/asistente/benchmark`. Ninguna respuesta incluye datos de usuario.
 
@@ -296,8 +296,11 @@ Todas bajo `auth:sanctum` (cualquier usuario autenticado; aún no hay roles) en 
 | GET | `/estadisticas` | `dias` (`7` o `30`, por defecto 7) | `rango`, `totales` (interacciones, exitosas, `fast_path`, bloqueadas, errores, `tasa_exito`, tokens, latencia), `serie` por día (días sin datos en 0), `por_resultado`, `top_guards`, `top_tools` |
 | GET | `/logs` | `resultado`, `fecha_inicio`, `fecha_fin`, `guard`, `herramienta`, `search`, `page`, `per_page` (máx. 100) | Colección paginada con `meta` y `stats` según el filtro vigente |
 | GET | `/logs/{log}` | — | Detalle: mensaje, prompt (versión, texto vigente y si sigue vigente), respuesta final y original, guards, tokens, error saneado y tools con argumentos y tablas |
+| GET | `/depuracion` | `meses` (`3`, `6` o `12`, obligatorio) | Vista previa: `meses`, fecha de `corte` en zona local, conteo de `turnos`, `tools` y `conservados` |
+| DELETE | `/depuracion` | `meses` (`3`, `6` o `12`, obligatorio) | Borrado en lotes: elimina herramientas hijas antes que los turnos (`restrictOnDelete`) y registra advertencia en `laravel.log` |
 
-- `BenchmarkConsultaService` concentra las consultas; los `FormRequest` (`EstadisticasBenchmarkRequest`, `FiltroLogsAgenteRequest`) validan los filtros.
+- `BenchmarkConsultaService` concentra las consultas de lectura y `DepuracionLogsAgenteService` la depuración manual por lotes; los `FormRequest` (`EstadisticasBenchmarkRequest`, `FiltroLogsAgenteRequest`, `DepuracionLogsAgenteRequest`) validan los parámetros.
+- La depuración manual solo admite una lista cerrada de meses (`[3, 6, 12]`) impidiendo borrar los últimos 3 meses; `DepuracionLogsAgenteRequest` rechaza con 422 cualquier otro valor.
 - Los días se agrupan en la **zona horaria de negocio** (`config('avicola.timezone')`), no en UTC; los filtros de fecha son inclusivos en esa zona.
 - `search` y `guard` tratan `%` y `_` como texto literal. El escape usa `ESCAPE '!'` y no la barra invertida: PDO-pgsql falla con `ESCAPE '\'` ("Invalid parameter number") aunque SQLite lo acepte.
 

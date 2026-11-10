@@ -55,7 +55,7 @@ Dos pestañas, con el mismo interruptor de píldoras que usa Producción:
 * Los **errores se guardan saneados**: sin la API key de Gemini (que aparece en la URL de los errores de red) ni rutas de código. La traza completa va únicamente a `storage/logs/laravel.log`.
 * El `uuid_conversacion` es aleatorio y lo genera el navegador: sirve para agrupar los turnos de una conversación, no para identificar a una persona.
 
-> **Aviso:** el mensaje del operario es texto libre y puede contener datos personales que él mismo escriba. El acceso a Benchmark es para cualquier usuario autenticado (aún no hay roles); si se crean roles, conviene restringir `asistente/benchmark/*`. La depuración automática de logs está planificada en `Proyects-IA/docs/superpowers/plans/2026-11-10-depuracion-logs-benchmark.md`.
+> **Aviso:** el mensaje del operario es texto libre y puede contener datos personales que él mismo escriba. El acceso a Benchmark es para cualquier usuario autenticado (aún no hay roles); si se crean roles, conviene restringir `asistente/benchmark/*`. La depuración manual de logs antiguos está implementada desde la pantalla (3, 6 o 12 meses); la depuración automática como comando programado queda para fase 2.
 
 ---
 
@@ -243,9 +243,9 @@ Cada tool declara sus tablas con `AsistenteToolInterface::tablasConsultadas()` (
 docker compose exec api php artisan db:seed --class=BenchmarkDemoSeeder --force
 ```
 
-## 4. API del Benchmark (solo lectura)
+## 4. API del Benchmark (`AsistenteBenchmarkController` y `DepuracionLogsAgenteController`)
 
-Todas bajo `auth:sanctum`, prefijo `/api/v1/asistente/benchmark`. Controlador delgado (`AsistenteBenchmarkController`), validación en `FormRequest` y consultas en `BenchmarkConsultaService`. **Ninguna respuesta incluye datos de usuario.**
+Todas bajo `auth:sanctum`, prefijo `/api/v1/asistente/benchmark`. Controladores delgados (`AsistenteBenchmarkController` para lectura y `DepuracionLogsAgenteController` para purga manual), validación en `FormRequest` y lógica en `BenchmarkConsultaService` y `DepuracionLogsAgenteService`. **Ninguna respuesta incluye datos de usuario.**
 
 ### 4.1 `GET /estadisticas?dias=7|30`
 
@@ -305,6 +305,14 @@ Respuesta (formato estándar de colección paginada):
 
 Devuelve el turno completo: `mensaje_usuario`, `prompt` (`version`, `texto` vigente y `version_vigente`: si el hash guardado coincide con el actual), `respuesta_agente`, `respuesta_original_llm`, `resultado`, `guards_aplicados`, `error_mensaje`, `tokens` (`prompt`, `respuesta`, `total`), `iteraciones`, `duracion_ms`, `modelo`, `uuid_conversacion` y `tools` (cada una con `orden`, `herramienta`, `argumentos`, `tablas_consultadas`, `resumen_resultado`, `exito`, `duracion_ms`). Un id inexistente responde 404.
 
+### 4.4 `GET /depuracion?meses=3|6|12`
+
+Calcula y devuelve la vista previa de cuántos registros se eliminarán antes de ejecutar la purga: `meses`, fecha de `corte` en zona local (`America/El_Salvador`), `turnos`, `tools` y `conservados` (turnos que se mantendrán vigentes). Si `meses` no está en `[3, 6, 12]`, responde `422`. No escribe en la base de datos.
+
+### 4.5 `DELETE /depuracion?meses=3|6|12`
+
+Ejecuta el borrado seguro por lotes de 500 registros dentro de transacciones de base de datos (`DB::transaction`). Elimina primero las herramientas hijas vinculadas (`mnt_funcion_log_agent_tools`) respetando la restricción foránea `restrictOnDelete()` y luego los turnos padres (`mnt_funcion_log_agent`). Deja una advertencia de auditoría en `laravel.log` con el ID del usuario que ejecutó la limpieza, los meses, fecha de corte y conteos reales (sin incluir el texto de los mensajes).
+
 > **Nota técnica (portabilidad PostgreSQL / SQLite):** los filtros `LIKE` usan `ESCAPE '!'` y no la barra invertida. PDO-pgsql falla con `ESCAPE '\'` ("Invalid parameter number") aunque SQLite lo acepte, y las pruebas en SQLite no lo detectan; se verificó contra el PostgreSQL de desarrollo.
 
 ## 5. Frontend: pantalla `/benchmark`
@@ -319,6 +327,7 @@ Detalle en el README del frontend (sección 6.8). En resumen:
 | Gráfico por día | `components/benchmark/SerieDiariaCard.vue` | `SectionCard` + `LineChart` (se usa dos veces) |
 | Ranking de barras | `components/benchmark/RankingCard.vue` | `SectionCard` + `ProgressBar` (se usa tres veces; opcionalmente clicable) |
 | Detalle | `components/benchmark/LogDetalleModal.vue` | `BaseModal` + `CollapsibleCard`; solo interpolación `{{ }}`, **nunca `v-html`** |
+| Depuración | `components/benchmark/LimpiezaHistoricoModal.vue` | `BaseModal` + `RangeToggle` (tamaño `md`); purga manual de historial (3, 6, 12 meses) |
 | Estado | `stores/benchmark.js`, `services/benchmark.js` | Solo la última petición de cada recurso escribe en el estado (sin carreras al cambiar de rango o filtrar rápido) |
 | Etiquetas | `utils/benchmark.js` | Fuente única de etiquetas y variantes de badge |
 
@@ -343,8 +352,9 @@ docker compose exec -T -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_URL
 | `BenchmarkRegistradorTest` | Tokens, guards, argumentos sin identidad, error saneado, que registrar no lance, versión del prompt |
 | `BenchmarkOrquestadorTest` | El caso `suma 2+3` sin llamar a Gemini, fast-path, tools y tablas, argumentos inválidos, fuga, error 503, que un fallo del registrador no rompa el chat |
 | `BenchmarkApiTest` | Autenticación, validación, estadísticas (días rellenados, zona horaria), filtros, paginación, detalle, ausencia de datos de usuario |
+| `DepuracionLogsAgenteTest` | Validación lista cerrada (3, 6, 12 meses), cálculo de corte, vista previa, eliminación por lotes sin violar FK, auditoría sin texto privado |
 
-Estado al elaborar este documento: **243 pruebas en verde** (la línea base previa era de 104).
+Estado al elaborar este documento: **260 pruebas en verde** (la línea base previa era de 104).
 
 ## 7. Cómo extender
 
@@ -355,7 +365,7 @@ Estado al elaborar este documento: **243 pruebas en verde** (la línea base prev
 ## 8. Pendientes y evolución
 
 * **`HallucinationCheckGuard`** (verificar que las cifras de la respuesta provengan de una herramienta ejecutada): fase posterior; requiere juicio sobre el texto y no es determinista.
-* **Depuración automática de logs:** sin purga por ahora (los logs se guardan indefinidamente). Plan en `Proyects-IA/docs/superpowers/plans/2026-11-10-depuracion-logs-benchmark.md`.
+* **Depuración automática de logs:** implementada la depuración manual desde la pantalla de Benchmark (`3`, `6` y `12` meses). La depuración automática programada (cron / `schedule:work`) queda como fase 2 opcional.
 * **Roles de acceso al Benchmark:** hoy cualquier usuario autenticado puede leerlo.
 * **Migrar Producción a `PillTabs` y `RangeToggle`:** el marcado sigue copiado en `ProduccionView` y `ProduccionHuevosCard`.
 * **`ToolArgumentValidationGuard` más estricto que antes:** rechaza fechas que Carbon aceptaba (`2026-11-9`) y especies fuera de Gallina/Chompipe/Pato (`Gallinas`, `Pavo`); cada reintento del modelo consume una de las 3 iteraciones.
