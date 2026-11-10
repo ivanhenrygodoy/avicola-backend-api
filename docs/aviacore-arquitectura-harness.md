@@ -23,13 +23,17 @@
 │                        BACKEND API (LARAVEL 11)                        │
 │  AsistenteController ──► AsistenteOrquestadorService                   │
 │                                │                                       │
+│        GuardrailPipeline ◄─────┤ (entrada · tool · bucle · salida)     │
+│                                │                                       │
 │          ┌─────────────────────┴─────────────────────┐                 │
 │          ▼                                           ▼                 │
 │   PromptComposer (4 capas)                  AsistenteToolRegistry      │
 │          │                                           │                 │
 │          ▼                                           ▼                 │
-│   GeminiApiClient                     5 Tools de Dominio Específicas   │
+│   GeminiApiClient                     6 Tools (5 operativas + RAG)     │
 │   (gemini-3.1-flash-lite)             (Inventario, Huevos, Gastos, ...)│
+│                                │                                       │
+│        FuncionLogAgentService ◄┘ (auditoría del turno → Benchmark)     │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
@@ -46,6 +50,79 @@
    El orquestador no contiene sentencias condicionales `switch/case` ni conoce las tablas del sistema. Cada herramienta es una clase aislada que implementa la interfaz `AsistenteToolInterface`. Agregar una nueva funcionalidad (por ejemplo, RAG en Etapa 8) no requiere modificar el controlador ni el orquestador principal.
 4. **Modo Operate y UX Agropecuaria:**  
    Cumpliendo con `avicola-frontend/DESIGN.md`, las respuestas son concisas (1 a 3 oraciones), en trato de tú profesional, con formato de fechas estricto (`DD-MM-YYYY`) y respaldadas visualmente por la identidad corporativa y el imagotipo [`GallinaIcon.vue`].
+
+### 1.1 Estructura de carpetas del harness
+
+Todo el asistente vive en `app/Services/Asistente/` (backend) y en las carpetas `asistente/` y `benchmark/` del frontend. Cada carpeta tiene una sola responsabilidad:
+
+```text
+avicola-backend-api/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/Api/V1/
+│   │   │   ├── AsistenteController.php            # POST /asistente/chat (delgado: valida, inyecta contexto, delega)
+│   │   │   └── AsistenteBenchmarkController.php   # GET /asistente/benchmark/* (solo lectura)
+│   │   └── Requests/Asistente/
+│   │       ├── ChatRequest.php                    # mensaje (1-1000), historial (<=20), uuid_conversacion
+│   │       ├── EstadisticasBenchmarkRequest.php   # dias = 7 | 30
+│   │       └── FiltroLogsAgenteRequest.php        # filtros del listado de logs
+│   ├── Models/
+│   │   ├── FuncionLogAgent.php                    # turno auditado (mnt_funcion_log_agent)
+│   │   ├── FuncionLogAgentTool.php                # tool ejecutada en un turno
+│   │   ├── CtlDocumentoTecnico.php                # catálogo de manuales (RAG)
+│   │   └── MntDocumentoFragmento.php              # fragmentos con vector (RAG)
+│   ├── Console/Commands/IngestarManualesCommand.php   # php artisan avicola:ingestar-manuales
+│   ├── Providers/AppServiceProvider.php           # registro OCP: ASISTENTE_TOOLS y ASISTENTE_GUARDRAILS
+│   └── Services/Asistente/
+│       ├── AsistenteOrquestadorService.php        # CEREBRO: coordina guards, Gemini, tools y auditoría
+│       ├── AsistenteToolRegistry.php              # catálogo y despachador de tools
+│       ├── GeminiApiClient.php                    # cliente HTTP de Gemini (generateContent y embeddings)
+│       ├── PromptComposer.php                     # System Instruction en 4 capas
+│       ├── ModuloNavigationResolver.php           # sugerencias de módulos + sanitizado de nombres de tools
+│       ├── SaludoDetectorService.php              # detección de saludos (lo usa SaludoFastPathGuard)
+│       ├── Contracts/AsistenteToolInterface.php   # contrato de toda tool
+│       ├── Tools/                                 # una clase por herramienta (6)
+│       ├── Rag/                                   # VectorStoreService e IngestaManualesService (pgvector)
+│       ├── Guardrails/                            # protecciones en código, por fase
+│       │   ├── Contracts/GuardrailInterface.php   #   contrato de todo guard
+│       │   ├── GuardrailBase.php                  #   utilidades comunes (normalizar texto, config)
+│       │   ├── GuardrailPipeline.php              #   ejecuta los guards por fase
+│       │   ├── ContextoGuardrail.php · ResultadoGuardrail.php · ResultadoPipeline.php
+│       │   ├── Entrada/                           #   7 guards, antes de llamar al modelo
+│       │   ├── Tool/                              #   ToolArgumentValidationGuard
+│       │   ├── Bucle/                             #   ToolLoopGuard
+│       │   └── Salida/                            #   4 guards, sobre la respuesta del modelo
+│       └── Benchmark/                             # auditoría
+│           ├── RastroTurno.php                    #   acumula lo ocurrido en un turno (sin tocar la BD)
+│           ├── FuncionLogAgentService.php         #   persiste el turno; nunca lanza
+│           └── BenchmarkConsultaService.php       #   estadísticas, listado y detalle (solo lectura)
+├── config/
+│   ├── gemini.php                                 # api_key, modelo, timeout, embeddings
+│   └── guardrails.php                             # mensajes, vocabulario de la granja y patrones
+├── database/{migrations,seeders}/                 # tablas del log; BenchmarkDemoSeeder y DocumentosTecnicosSeeder
+└── tests/Feature/                                 # AsistenteTest, RagTest, Guardrails*Test, Benchmark*Test
+
+avicola-frontend/src/
+├── components/asistente/    # AsistenteChatWidget, AsistenteMensaje, AsistenteIndicador
+├── components/benchmark/    # SerieDiariaCard, RankingCard, LogDetalleModal
+├── stores/                  # asistente.js (chat y uuidConversacion) y benchmark.js
+├── services/                # asistente.js y benchmark.js (clientes HTTP)
+├── utils/benchmark.js       # etiquetas de resultado, acción y fase de los guards
+└── views/BenchmarkView.vue  # pantalla /benchmark
+```
+
+**Responsabilidades por capa** (de afuera hacia adentro):
+
+| Capa | Piezas | Responsabilidad | No hace |
+|---|---|---|---|
+| **HTTP** | Controladores y `FormRequest` | Autenticación (Sanctum), validación de entrada, contexto fijo, respuesta JSON estándar | Lógica de negocio ni de IA |
+| **Orquestación** | `AsistenteOrquestadorService` | Coordina el turno de principio a fin y arma el rastro de auditoría | Conocer tablas ni reglas de cada guard o tool |
+| **Protección** | `Guardrails/` | Bloquea, corrige o avisa en cuatro momentos del turno | Llamar al modelo ni consultar la base |
+| **Inteligencia** | `PromptComposer`, `GeminiApiClient` | Compone las instrucciones y habla con Gemini | Decidir qué es seguro |
+| **Datos** | `Tools/`, `Rag/`, `AsistenteToolRegistry` | Consultas acotadas y compactas a PostgreSQL y pgvector | Redactar respuestas |
+| **Auditoría** | `Benchmark/` | Guarda cada turno (sin datos del usuario) y lo expone en solo lectura | Afectar al chat si falla |
+
+**Puntos de extensión (OCP):** agregar una herramienta es una clase en `Tools/` más una línea en `ASISTENTE_TOOLS`; agregar un guard es una clase en `Guardrails/<Fase>/` más una línea en `ASISTENTE_GUARDRAILS`. El orquestador no se modifica en ninguno de los dos casos. El detalle de guardrails y auditoría está en [`aviacore-benchmark-guardrails.md`](aviacore-benchmark-guardrails.md) y el del RAG en [`aviacore-rag-embeddings.md`](aviacore-rag-embeddings.md).
 
 ---
 
@@ -101,7 +178,7 @@ Para comprender cómo opera AviaCore de manera intuitiva sin necesidad de sumerg
    👉 *"Para responder con exactitud, requiero que ejecutes la herramienta `consultar_inventario_aves`"*.
 6. **Paso 6: La herramienta consulta los datos reales en PostgreSQL**  
    El orquestador recibe la instrucción y delega la ejecución en [`ConsultarInventarioAvesTool.php`]. La herramienta realiza una consulta SQL optimizada a la base de datos y genera una respuesta compacta:  
-   `{ "total_activas": 15, "por_especie": { "Gallina": 10, "Chompipe": 5 }, "por_sexo": { "Hembra": 10, "Macho": 5 } }`.
+   `{ "total_aves": 15, "por_especie": { "Gallina": 10, "Chompipe": 5 }, "por_sexo": { "Hembra": 10, "Macho": 5 } }`.
 7. **Paso 7: Gemini sintetiza la respuesta humana y el frontend la presenta**  
    El orquestador le reenvía las cifras verídicas a Gemini, quien redacta la respuesta final en lenguaje amigable:  
    > *"Actualmente la granja cuenta con 15 aves activas: 10 gallinas criollas y 5 chompipes (10 hembras y 5 machos). 🐔"*  
@@ -143,8 +220,8 @@ sequenceDiagram
     Note over Orq,Tool: Ciclo de Function Calling (Iteración 1)
     Orq->>Reg: ejecutar('consultar_inventario_aves', args, contextoFijo)
     Reg->>Tool: ejecutar(args, contextoFijo)
-    Tool->>Tool: Consulta MntAve filtrando por ctl_estado_ave
-    Tool-->>Reg: Payload Compacto: { total_activas: 15, por_especie: {...} }
+    Tool->>Tool: Consulta Ave (mnt_aves) con estado = 'activa'
+    Tool-->>Reg: Payload Compacto: { total_aves: 15, por_especie: {...} }
     Reg-->>Orq: Resultado estructurado de la herramienta
     
     Orq->>Orq: Añade respuesta de la tool al historial (role: 'function')
@@ -178,7 +255,13 @@ sequenceDiagram
    - Serializa la respuesta como `functionResponse`.
    - Reinvoca al modelo de lenguaje para que redacte la respuesta final en lenguaje natural comprensible para el operador.
 4. **Protección contra Bucles Infinitos:**  
-   El orquestador tiene una constante de seguridad `MAX_ITERACIONES = 3`. Si por algún fallo el modelo entra en un bucle solicitando herramientas de forma descontrolada, el orquestador frena la recursión y entrega un mensaje controlado para evitar sobrecostos o bloqueos.
+   El orquestador limita las iteraciones a 3 (hoy `ToolLoopGuard::LIMITE`; antes la constante `MAX_ITERACIONES`). Si por algún fallo el modelo entra en un bucle solicitando herramientas de forma descontrolada, el orquestador frena la recursión y entrega un mensaje controlado para evitar sobrecostos o bloqueos.
+5. **Atajo de Saludos (0 tokens):**  
+   Antes de llamar al modelo, `SaludoDetectorService` detecta saludos, cortesías, despedidas y preguntas de identidad puras ("hola", "gracias", "¿quién eres?") y responde con un texto predeterminado, sin consumir tokens ni latencia del proveedor. Hoy lo ejecuta `SaludoFastPathGuard`, que envuelve el mismo servicio.
+6. **Saneamiento de la Respuesta:**  
+   Antes de entregar el texto, `ModuloNavigationResolver::sanitizarRespuesta` reemplaza cualquier mención inadvertida a nombres internos de herramientas (`consultar_gastos_periodo`, etc.) por el módulo operativo correspondiente. Hoy lo reutiliza `SystemLeakageGuard`, que además bloquea la fuga de nombres de tabla, rutas, trazas y API keys.
+
+> Estas validaciones, junto con las nuevas, están organizadas por fase en [`aviacore-benchmark-guardrails.md`](aviacore-benchmark-guardrails.md) (sección 2.7 de la parte 2 indica cuáles ya existían y dónde quedó cada una).
 
 ---
 
@@ -227,28 +310,34 @@ namespace App\Services\Asistente\Contracts;
 
 interface AsistenteToolInterface
 {
-    public function obtenerNombre(): string;
-    public function obtenerDescripcion(): string;
-    public function obtenerDeclaracionTool(): array;
-    public function ejecutar(array $argumentos, array $contextoFijo): array;
+    public function nombre(): string;
+    public function descripcion(): string;
+    public function tablasConsultadas(): array;   // tablas que lee la tool (auditoría del Benchmark)
+    public function esquema(): array;
+    public function ejecutar(array $argumentos, array $contextoFijo = []): array;
 }
 ```
 
-La función `obtenerDeclaracionTool()` genera el esquema JSON compliant con **OpenAPI 3.0** que Gemini requiere para decidir cuándo y cómo llamar a la herramienta.
+`esquema()` genera el esquema JSON compliant con **OpenAPI 3.0** que Gemini requiere para decidir cuándo y cómo llamar a la herramienta. `AsistenteToolRegistry` lo combina con `nombre()` y `descripcion()` en `obtenerDeclaracionesTools()`. `tablasConsultadas()` es un dato declarativo (no inferido) que el orquestador guarda en la auditoría de cada turno.
 
 ### 5.2 Registro OCP (`AsistenteToolRegistry`)
 
 El registro central no conoce las implementaciones directas; las herramientas se registran e inyectan en [`AppServiceProvider.php`]:
 
 ```php
-$this->app->singleton(AsistenteToolRegistry::class, function ($app) {
-    $registry = new AsistenteToolRegistry();
-    foreach (self::$ASISTENTE_TOOLS as $toolClass) {
-        $registry->registrar($app->make($toolClass));
-    }
-    return $registry;
-});
+private const ASISTENTE_TOOLS = [
+    ConsultarInventarioAvesTool::class,
+    // ... una línea por herramienta
+];
+
+$this->app->tag(self::ASISTENTE_TOOLS, 'asistente.tools');
+
+$this->app->when(AsistenteToolRegistry::class)
+    ->needs('$herramientas')
+    ->giveTagged('asistente.tools');
 ```
+
+Los guardrails siguen exactamente el mismo patrón con `ASISTENTE_GUARDRAILS` y el tag `asistente.guardrails`, inyectados en `GuardrailPipeline`.
 
 ### 5.3 Principio de Payloads Compactos (Optimización de Context Window)
 
@@ -260,15 +349,26 @@ Las herramientas de AviaCore nunca retornan colecciones masivas de modelos Eloqu
 
 ---
 
-## 6. Catálogo de Herramientas Implementadas (Etapa 7)
+## 6. Catálogo de Herramientas Implementadas
 
-| Nombre de la Herramienta | Entidades Involucradas | Propósito y Argumentos | Salida Compacta |
+Seis herramientas en `app/Services/Asistente/Tools/` (cinco operativas de la Etapa 7 y la de manuales técnicos de la Etapa 8). La columna de tablas es lo que declara cada una en `tablasConsultadas()` y es lo que aparece en el detalle de cada turno del Benchmark. Los argumentos son los del esquema real que recibe Gemini; todos son opcionales salvo los marcados como obligatorios.
+
+| Herramienta | Tablas (`tablasConsultadas()`) | Propósito y argumentos | Salida compacta |
 |---|---|---|---|
-| `consultar_inventario_aves` | `MntAve`, `CtlEspecieAve`, `CtlEstadoAve` | Conteo de población avícola activa. Filtros opcionales: `especie`, `sexo`. | Total de aves activas, desglose por especie y desglose por sexo. |
-| `consultar_produccion_huevos` | `MntControlPosturaHuevos` | Balance de postura y recolección. Argumentos: `fecha_desde`, `fecha_hasta`. | Total recolectados, rotos y cálculo de huevos aprovechables. |
-| `consultar_gastos_periodo` | `MntControlGasto`, `CtlConceptoGasto` | Reporte financiero de egresos. Argumentos: `fecha_desde`, `fecha_hasta`, `concepto`. | Monto total en USD, cantidad de registros y desglose por concepto. |
-| `consultar_ubicacion_ave` | `MntAve`, `CtlDivision`, `CtlCasita` | Trazabilidad física de un animal por su código o anillo. Argumento obligatorio: `codigo_ave`. | Código, especie, nombre de la casita, número de división y estado biológico. |
-| `consultar_raciones_alimento` | `MntControlAlimento`, `CtlDivision`, `CtlEspecieAve` | Historial de alimentación suministrada. Argumentos: `dias_atras` (default 7), `especie`. | Total de raciones en kilogramos, desglose por especie y registros recientes. |
+| `consultar_inventario_aves` | `mnt_aves`, `ctl_especie`, `ctl_sexo`, `mnt_divisiones`, `mnt_casitas` | Población e inventario de aves. `especie`, `sexo`, `id_division`, `estado` (`activa` por defecto, `salida` o `todos`). | `total_aves`, `por_especie`, `por_sexo` y hasta 5 `ejemplos` (código, nombre, especie, sexo, ubicación, peso). |
+| `consultar_produccion_huevos` | `mnt_registros_huevos` | Postura de huevos en un periodo o corral. `dias` (por defecto 7), `fecha_inicio`, `fecha_fin` (`Y-m-d`), `id_division`. | Periodo (`desde`/`hasta` en `DD-MM-YYYY`), totales de recolectados, rotos y aprovechables, `porcentaje_rotura` y hasta 7 días de `resumen_diario_reciente`. |
+| `consultar_gastos_periodo` | `mnt_gastos`, `ctl_categorias_gastos` | Gastos operativos y compras. `mes`, `anio`, `fecha_inicio`, `fecha_fin` (`Y-m-d`), `categoria` (coincidencia parcial, ej. Alimento, Medicina). | `total_gastado`, `por_categoria` y los 5 `ultimos_gastos` (fecha, monto, categoría, concepto, proveedor). |
+| `consultar_ubicacion_ave` | `mnt_aves`, `ctl_especie`, `ctl_sexo`, `ctl_proposito`, `mnt_divisiones`, `mnt_casitas`, `mnt_movimientos_aves` | Localiza un ave. **`criterio` obligatorio**: código (ej. `AVE-001`) o nombre (ej. `Rubia`), coincidencia exacta. | `encontrado` y, si existe, el ave (código, nombre, especie, sexo, raza, estado, peso, casita y corral) y su `ultimo_movimiento`. |
+| `consultar_raciones_alimento` | `mnt_registros_alimentacion`, `ctl_tipos_alimento`, `mnt_divisiones`, `mnt_casitas` | Alimento suministrado. `dias` (por defecto 7), `fecha_inicio`, `fecha_fin`, `id_division`, `tipo_alimento` (coincidencia parcial). | `total_kilos`, `total_costo`, `por_tipo_alimento` (kg) y los 5 `ultimos_suministros`. |
+| `consultar_manuales_tecnicos` | `mnt_documentos_fragmentos`, `ctl_documentos_tecnicos` | Búsqueda semántica (RAG, pgvector) en los manuales zootécnicos. **`consulta` obligatoria**, `especie` opcional (Gallina, Chompipe, Pato). | Hasta 3 `fragmentos` (documento, sección, especie, contenido) o, si no hay cobertura, `orientacion_pedagogica` para derivar al veterinario. Detalle en [`aviacore-rag-embeddings.md`](aviacore-rag-embeddings.md). |
+
+**Notas del comportamiento real**
+
+- **Validación previa:** `ToolArgumentValidationGuard` revisa `fecha_inicio`/`fecha_fin` (y los alias `fecha_desde`/`fecha_hasta`) y `especie` **antes** de ejecutar la herramienta: fechas `Y-m-d` reales, fin no anterior al inicio y especie en Gallina, Chompipe o Pato. Si falla, la herramienta no se ejecuta y el modelo recibe el motivo.
+- **Zona horaria:** "hoy" y los rangos se calculan con `config('avicola.timezone')` (`America/El_Salvador`).
+- **Fechas de salida:** las herramientas devuelven las fechas en `DD-MM-YYYY`.
+- **Tamaño de las muestras:** 5 registros recientes (7 en el resumen diario de huevos) para no saturar la ventana de tokens (ver 5.3).
+- **Sin dato de usuario:** ninguna herramienta usa `id_usuario`; el contexto fijo se inyecta pero estas consultas son de la granja completa.
 
 ---
 
@@ -317,7 +417,7 @@ El widget de AviaCore fue diseñado respetando rigurosamente los principios de a
 
 ## 8. Pruebas Automatizadas y Estrategia de Calidad (TDD)
 
-El asistente cuenta con una suite completa de **18 pruebas automatizadas** en [`tests/Feature/AsistenteTest.php`], ejecutadas en un entorno 100% aislado en memoria (SQLite) para garantizar que la base de datos PostgreSQL de desarrollo no sea modificada ni corrompida:
+El asistente cuenta con una suite completa de **21 pruebas automatizadas** en [`tests/Feature/AsistenteTest.php`], ejecutadas en un entorno 100% aislado en memoria (SQLite) para garantizar que la base de datos PostgreSQL de desarrollo no sea modificada ni corrompida:
 
 ```bash
 docker compose -f avicola-backend-api/docker-compose.yml exec \
@@ -331,8 +431,9 @@ docker compose -f avicola-backend-api/docker-compose.yml exec \
 
 - **Composición del Prompt:** Verifica la presencia de las 4 capas y el nombre AviaCore.
 - **Generación de Esquemas OpenAPI:** Comprueba que las herramientas produzcan el JSON Schema compatible con Gemini.
-- **Inyección Anti-IDOR:** Valida que el contexto fijo de sesión no sea sobrescrito por argumentos del LLM.
-- **Ejecución Unitaria de las 5 Tools:** Verifica que cada herramienta calcule y devuelva los datos correctos de aves, huevos, gastos, ubicación y alimentos.
+- **Inyección Anti-IDOR:** Valida que el registry inyecte el contexto fijo de sesión (`id_usuario`) a la herramienta. Que el orquestador **descarte** los argumentos de identidad que el modelo intente pasar (`id_usuario`, `email`…) se agregó después y se prueba en `BenchmarkOrquestadorTest`.
+- **Atajo de Saludos y Saneamiento:** El atajo de saludos (sin llamar a Gemini) y el reemplazo de nombres internos de tools tienen pruebas propias en `AsistenteTest`.
+- **Ejecución Unitaria de las Tools:** Verifica que cada herramienta operativa calcule y devuelva los datos correctos de aves, huevos, gastos, ubicación y alimentos; la herramienta de manuales técnicos se prueba en `RagTest`.
 - **Resiliencia ante Fallos de Red / 404 / 503:** Verifica el comportamiento seguro y mensajes legibles cuando la API de Gemini no responde.
 - **Prevención de Bucles Infinitos:** Garantiza que el orquestador se detenga limpiamente al alcanzar el límite de 3 iteraciones de Function Calling.
 - **Endpoint HTTP Seguro:** Valida autenticación Sanctum y formato de respuesta JSON.
