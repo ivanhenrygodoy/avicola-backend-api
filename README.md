@@ -293,12 +293,18 @@ Todas bajo `auth:sanctum` (cualquier usuario autenticado; aún no hay roles) en 
 
 | Método | Ruta | Parámetros | Devuelve |
 |---|---|---|---|
-| GET | `/estadisticas` | `dias` (`7` o `30`, por defecto 7) | `rango`, `totales` (interacciones, exitosas, `fast_path`, bloqueadas, errores, `tasa_exito`, tokens, latencia), `serie` por día (días sin datos en 0), `por_resultado`, `top_guards`, `top_tools` |
+| GET | `/estadisticas` | `dias` (`7` o `30`, por defecto 7) | `rango`, `totales` (conteos por resultado, tokens de entrada y salida, métricas de uso, calidad y latencia: ver abajo), `serie` por día (días sin datos en 0), `por_resultado`, `top_guards`, `top_tools` |
 | GET | `/logs` | `resultado`, `fecha_inicio`, `fecha_fin`, `guard`, `herramienta`, `search`, `page`, `per_page` (máx. 100) | Colección paginada con `meta` y `stats` según el filtro vigente |
 | GET | `/logs/{log}` | — | Detalle: mensaje, prompt (versión, texto vigente y si sigue vigente), respuesta final y original, guards, tokens, error saneado y tools con argumentos y tablas |
 | GET | `/depuracion` | `meses` (`3`, `6` o `12`, obligatorio) | Vista previa: `meses`, fecha de `corte` en zona local, conteo de `turnos`, `tools` y `conservados` |
 | DELETE | `/depuracion` | `meses` (`3`, `6` o `12`, obligatorio) | Borrado en lotes: elimina herramientas hijas antes que los turnos (`restrictOnDelete`) y registra advertencia en `laravel.log` |
 
+- **Métricas de `totales`.** Un turno "consultó al modelo" (`con_modelo`) si **no** fue bloqueado por un guard ni resuelto por la vía rápida; los errores del proveedor cuentan como "con modelo" porque llegaron a Gemini y pueden haber gastado tokens (por eso se distingue por `resultado` y no por tokens).
+  - Uso: `con_modelo`, `sin_modelo`, `tokens_prompt` (entrada), `tokens_respuesta` (salida), `tokens_total`, `tokens_por_consulta` (`tokens_total` ÷ `con_modelo`) y `llamadas_por_consulta` (iteraciones ÷ `con_modelo`).
+  - Calidad: `resueltas` (`exitoso` + `fast_path`), `bloqueadas`, `errores` y sus porcentajes sobre el total (`pct_resueltas`, `pct_bloqueadas`, `pct_errores`); `espera_errores_ms` es la suma de la duración de los turnos con error.
+  - Rendimiento: `latencia_mediana_ms` y `latencia_p90_ms` se calculan solo sobre los turnos que consultaron al modelo (el percentil 90 usa el rango más cercano).
+  - Compatibilidad: se conservan `exitosas`, `fast_path`, `tasa_exito`, `tokens_promedio` (÷ todos los turnos) y `latencia_promedio_ms`. La pantalla ya no muestra `tasa_exito` ni los promedios generales porque mezclan turnos con y sin modelo.
+  - No hay métrica de costo: los precios del proveedor cambian y no se guardan en el sistema.
 - `BenchmarkConsultaService` concentra las consultas de lectura y `DepuracionLogsAgenteService` la depuración manual por lotes; los `FormRequest` (`EstadisticasBenchmarkRequest`, `FiltroLogsAgenteRequest`, `DepuracionLogsAgenteRequest`) validan los parámetros.
 - La depuración manual solo admite una lista cerrada de meses (`[3, 6, 12]`) impidiendo borrar los últimos 3 meses; `DepuracionLogsAgenteRequest` rechaza con 422 cualquier otro valor.
 - Los días se agrupan en la **zona horaria de negocio** (`config('avicola.timezone')`), no en UTC; los filtros de fecha son inclusivos en esa zona.
@@ -331,7 +337,7 @@ Todas bajo `auth:sanctum` (cualquier usuario autenticado; aún no hay roles) en 
 
 ## 8. Pruebas
 
-Las pruebas están en `tests/Feature/` y usan `RefreshDatabase`: `AuthTest`, `InstalacionesTest`, `AvesTest`, `ProduccionTest`, `SeguimientoGastosTest`, `DashboardTest`, `AsistenteTest`, `RagTest` y las del asistente y su auditoría: `GuardrailsPipelineTest`, `GuardrailsEntradaTest`, `GuardrailsEntradaRegresionTest`, `GuardrailsSalidaTest`, `GuardrailsToolTest`, `BenchmarkLogTest`, `BenchmarkRegistradorTest`, `BenchmarkOrquestadorTest` y `BenchmarkApiTest`.
+Las pruebas están en `tests/Feature/` y usan `RefreshDatabase`: `AuthTest`, `InstalacionesTest`, `AvesTest`, `ProduccionTest`, `SeguimientoGastosTest`, `DashboardTest`, `AsistenteTest`, `RagTest` y las del asistente y su auditoría: `GuardrailsPipelineTest`, `GuardrailsEntradaTest`, `GuardrailsEntradaRegresionTest`, `GuardrailsSalidaTest`, `GuardrailsToolTest`, `BenchmarkLogTest`, `BenchmarkRegistradorTest`, `BenchmarkOrquestadorTest`, `BenchmarkApiTest`, `BenchmarkMetricasTest` y `DepuracionLogsAgenteTest`.
 
 > ### ⚠️ Advertencia importante: aislamiento de la base de datos
 >

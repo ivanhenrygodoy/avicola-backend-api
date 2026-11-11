@@ -257,8 +257,13 @@ Todas bajo `auth:sanctum`, prefijo `/api/v1/asistente/benchmark`. Controladores 
   "data": {
     "rango": { "desde": "2026-11-04", "hasta": "2026-11-10" },
     "totales": {
-      "interacciones": 3, "exitosas": 0, "fast_path": 0, "bloqueadas": 2, "errores": 1,
-      "tasa_exito": 0, "tokens_total": 0, "tokens_promedio": 0, "latencia_promedio_ms": 5170
+      "interacciones": 22, "exitosas": 16, "fast_path": 1, "bloqueadas": 3, "errores": 3,
+      "tasa_exito": 72.7, "tokens_total": 66370, "tokens_promedio": 3017, "latencia_promedio_ms": 19464,
+      "con_modelo": 18, "sin_modelo": 4,
+      "tokens_prompt": 64345, "tokens_respuesta": 2025,
+      "tokens_por_consulta": 3687, "llamadas_por_consulta": 1.4,
+      "resueltas": 16, "pct_resueltas": 72.7, "pct_bloqueadas": 13.6, "pct_errores": 13.6,
+      "espera_errores_ms": 107689, "latencia_mediana_ms": 10989, "latencia_p90_ms": 46995
     },
     "serie": [
       { "fecha": "2026-11-04", "exitosas": 0, "bloqueadas": 0, "errores": 0, "tokens_prompt": 0, "tokens_respuesta": 0 }
@@ -271,6 +276,21 @@ Todas bajo `auth:sanctum`, prefijo `/api/v1/asistente/benchmark`. Controladores 
 ```
 
 * `exitosas` = `exitoso` + `fast_path`; `tasa_exito` = porcentaje de `exitosas` sobre `interacciones` (0 si no hay datos, sin dividir por cero).
+* Los valores del ejemplo salen de los 22 turnos reales de la base de desarrollo al 11-11-2026.
+
+**Métricas de uso, calidad y rendimiento.** Un turno "consultó al modelo" (`con_modelo`) si **no** fue bloqueado por un guard ni resuelto por la vía rápida. Los **errores del proveedor cuentan como "con modelo"**: llegaron a Gemini y pueden haber gastado tokens antes de fallar (en los datos reales, un error gastó 2.289 tokens). Por eso la clasificación sale del `resultado` y **no** de que los tokens sean 0.
+
+| Campo | Cómo se calcula | Para qué sirve |
+|---|---|---|
+| `con_modelo` / `sin_modelo` | Turnos que no fueron / sí fueron bloqueados o resueltos por la vía rápida | Separa lo que costó tokens de lo que resolvió el sistema |
+| `tokens_prompt` / `tokens_respuesta` | Suma de entrada y de salida | La entrada es cerca del 97 % del consumo: cada llamada reenvía instrucciones, herramientas, historial y resultados |
+| `tokens_por_consulta` | `tokens_total` ÷ `con_modelo` | Consumo típico de una consulta real (el promedio general lo diluyen los turnos sin modelo) |
+| `llamadas_por_consulta` | iteraciones ÷ `con_modelo` | Cuántas veces se reenvía el contexto por consulta; cada vuelta de herramienta cuesta casi lo mismo que la primera |
+| `resueltas`, `bloqueadas`, `errores` y `pct_*` | Conteo y porcentaje sobre `interacciones` | Separa éxito, protección de los guards y fallos del proveedor (un bloqueo de guard no es un fallo) |
+| `espera_errores_ms` | Suma de `duracion_ms` de los turnos con `resultado = error` | Tiempo que los operarios esperaron en turnos que fallaron |
+| `latencia_mediana_ms`, `latencia_p90_ms` | Mediana y percentil 90 (rango más cercano) de `duracion_ms` **solo** de los turnos con modelo | El promedio engaña: pocas esperas largas lo suben mientras la mitad de las consultas es rápida |
+
+Se conservan `tasa_exito`, `tokens_promedio` y `latencia_promedio_ms` por compatibilidad, pero la pantalla ya no los muestra porque mezclan turnos con y sin modelo. **No hay métrica de costo**: los precios de Gemini cambian con frecuencia y el sistema no los guarda. Todo sale de columnas que ya existían (no hay migración).
 * `serie` trae **todos los días del rango** (los días sin datos quedan en 0), lista para un gráfico de líneas. Los días se agrupan en la **zona horaria de negocio** (`config('avicola.timezone')` = `America/El_Salvador`), no en UTC: un turno a las 21:30 locales cuenta en su día aunque ya sea el siguiente en UTC.
 * Los rankings devuelven como máximo 8 elementos.
 
@@ -324,12 +344,12 @@ Detalle en el README del frontend (sección 6.8). En resumen:
 | Vista | `views/BenchmarkView.vue` | `AppHeader`, `PageHeader`, `StatCard`, `FilterBar`, `DataTable` (con `PaginationBar` integrada), `StatusBadge`, `RowActionButton`, `BaseAlert` |
 | Pestañas | `components/common/PillTabs.vue` | **Nuevo, global**: el interruptor de píldoras de Producción |
 | Rango 7/30 | `components/common/RangeToggle.vue` | **Nuevo, global**: las píldoras de `ProduccionHuevosCard` |
-| Gráfico por día | `components/benchmark/SerieDiariaCard.vue` | `SectionCard` + `LineChart` (se usa dos veces) |
+| Gráfico por día | `components/benchmark/SerieDiariaCard.vue` | `SectionCard` + `LineChart` (se usa dos veces: interacciones y tokens de entrada y salida, en un mismo gráfico). Admite `formatValue`/`formatDetalle` para abreviar el eje ("20 mil") y mostrar la cifra exacta en el tooltip |
 | Ranking de barras | `components/benchmark/RankingCard.vue` | `SectionCard` + `ProgressBar` (se usa tres veces; opcionalmente clicable) |
 | Detalle | `components/benchmark/LogDetalleModal.vue` | `BaseModal` + `CollapsibleCard`; solo interpolación `{{ }}`, **nunca `v-html`** |
 | Depuración | `components/benchmark/LimpiezaHistoricoModal.vue` | `BaseModal` + `RangeToggle` (tamaño `md`); purga manual de historial (3, 6, 12 meses) |
 | Estado | `stores/benchmark.js`, `services/benchmark.js` | Solo la última petición de cada recurso escribe en el estado (sin carreras al cambiar de rango o filtrar rápido) |
-| Etiquetas | `utils/benchmark.js` | Fuente única de etiquetas y variantes de badge |
+| Etiquetas y formatos | `utils/benchmark.js` | Fuente única de etiquetas y variantes de badge, y de los formateadores de números (`formatNumber`, `formatCompacto`, `formatEjeCompacto`, `formatDuracion`, `formatPorcentaje`) |
 
 El widget del asistente (`stores/asistente.js`) genera el `uuidConversacion` con `crypto.randomUUID()` (se renueva al limpiar la conversación) y lo envía en cada mensaje; si el navegador no lo soporta, simplemente no se envía.
 
@@ -352,9 +372,10 @@ docker compose exec -T -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_URL
 | `BenchmarkRegistradorTest` | Tokens, guards, argumentos sin identidad, error saneado, que registrar no lance, versión del prompt |
 | `BenchmarkOrquestadorTest` | El caso `suma 2+3` sin llamar a Gemini, fast-path, tools y tablas, argumentos inválidos, fuga, error 503, que un fallo del registrador no rompa el chat |
 | `BenchmarkApiTest` | Autenticación, validación, estadísticas (días rellenados, zona horaria), filtros, paginación, detalle, ausencia de datos de usuario |
+| `BenchmarkMetricasTest` | Métricas de `totales`: separación con/sin modelo por resultado (no por tokens), entrada y salida, tokens y llamadas por consulta, porcentajes, espera de errores, mediana y p90 solo con modelo, rango de días y ceros sin dividir por cero |
 | `DepuracionLogsAgenteTest` | Validación lista cerrada (3, 6, 12 meses), cálculo de corte, vista previa, eliminación por lotes sin violar FK, auditoría sin texto privado |
 
-Estado al elaborar este documento: **260 pruebas en verde** (la línea base previa era de 104).
+Estado al elaborar este documento: **269 pruebas en verde** (la línea base previa era de 104).
 
 ## 7. Cómo extender
 
