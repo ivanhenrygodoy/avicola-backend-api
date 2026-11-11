@@ -15,6 +15,7 @@ use App\Services\Asistente\Guardrails\Entrada\SaludoFastPathGuard;
 use App\Services\Asistente\Guardrails\Entrada\ScopeEnforcementGuard;
 use App\Services\Asistente\Guardrails\GuardrailPipeline;
 use App\Services\Asistente\Guardrails\Salida\DateFormatGuard;
+use App\Services\Asistente\Guardrails\Salida\JsonRawOutputGuard;
 use App\Services\Asistente\Guardrails\Salida\LengthAndBrevityGuard;
 use App\Services\Asistente\Guardrails\Salida\SourceAttributionGuard;
 use App\Services\Asistente\Guardrails\Salida\SystemLeakageGuard;
@@ -86,6 +87,7 @@ class AppServiceProvider extends ServiceProvider
         SystemLeakageGuard::class,
         DateFormatGuard::class,
         SourceAttributionGuard::class,
+        JsonRawOutputGuard::class,
         LengthAndBrevityGuard::class,
     ];
 

@@ -6,6 +6,7 @@ use App\Services\Asistente\Guardrails\ContextoGuardrail;
 use App\Services\Asistente\Guardrails\Contracts\GuardrailInterface;
 use App\Services\Asistente\Guardrails\ResultadoGuardrail;
 use App\Services\Asistente\Guardrails\Salida\DateFormatGuard;
+use App\Services\Asistente\Guardrails\Salida\JsonRawOutputGuard;
 use App\Services\Asistente\Guardrails\Salida\LengthAndBrevityGuard;
 use App\Services\Asistente\Guardrails\Salida\SourceAttributionGuard;
 use App\Services\Asistente\Guardrails\Salida\SystemLeakageGuard;
@@ -131,9 +132,51 @@ class GuardrailsSalidaTest extends TestCase
         $this->assertSame(ResultadoGuardrail::PASA, $corta->accion);
     }
 
+    public function test_json_crudo_con_clave_de_texto_extrae_mensaje_conversacional(): void
+    {
+        $guard = new JsonRawOutputGuard;
+
+        $jsonPlano = '{"respuesta": "Como asistente de la granja, mi labor es orientarte en temas zootécnicos."}';
+        $resultado = $this->evaluar($guard, $jsonPlano);
+
+        $this->assertSame(ResultadoGuardrail::MODIFICACION, $resultado->accion);
+        $this->assertSame('Como asistente de la granja, mi labor es orientarte en temas zootécnicos.', $resultado->texto);
+    }
+
+    public function test_json_crudo_envuelto_en_bloque_markdown_se_sanea_correctamente(): void
+    {
+        $guard = new JsonRawOutputGuard;
+
+        $markdown = "```json\n{\n  \"respuesta\": \"Actualmente contamos con 120 gallinas ponedoras.\"\n}\n```";
+        $resultado = $this->evaluar($guard, $markdown);
+
+        $this->assertSame(ResultadoGuardrail::MODIFICACION, $resultado->accion);
+        $this->assertSame('Actualmente contamos con 120 gallinas ponedoras.', $resultado->texto);
+    }
+
+    public function test_json_arbitrario_sin_mensaje_se_bloquea_por_seguridad(): void
+    {
+        $guard = new JsonRawOutputGuard;
+
+        $jsonArbitrario = '{"query": "SELECT * FROM aves", "count": 100, "status": "ok"}';
+        $resultado = $this->evaluar($guard, $jsonArbitrario);
+
+        $this->assertSame(ResultadoGuardrail::BLOQUEO, $resultado->accion);
+        $this->assertSame(config('guardrails.mensajes.fuga'), $resultado->texto);
+    }
+
+    public function test_texto_natural_pasa_por_json_guard_sin_modificacion(): void
+    {
+        $guard = new JsonRawOutputGuard;
+
+        $resultado = $this->evaluar($guard, 'En la casita 1 se recolectaron 45 huevos hoy.');
+
+        $this->assertSame(ResultadoGuardrail::PASA, $resultado->accion);
+    }
+
     public function test_los_guards_de_salida_declaran_fase_salida(): void
     {
-        foreach ([new SystemLeakageGuard, new DateFormatGuard, new SourceAttributionGuard, new LengthAndBrevityGuard] as $guard) {
+        foreach ([new SystemLeakageGuard, new DateFormatGuard, new SourceAttributionGuard, new JsonRawOutputGuard, new LengthAndBrevityGuard] as $guard) {
             $this->assertSame('salida', $guard->fase());
         }
     }

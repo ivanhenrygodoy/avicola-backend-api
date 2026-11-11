@@ -35,6 +35,7 @@ class GuardrailsEntradaTest extends TestCase
             'manual sanitario' => ['cómo prevenir la histomoniasis en chompipes'],
             'saludo con consulta' => ['Hola, ¿cuántas aves hay?'],
             'raciones' => ['¿cuántas raciones de alimento se dieron ayer?'],
+            'preparar raciones' => ['¿cómo preparar las raciones de alimento para las gallinas?'],
         ];
     }
 
@@ -99,6 +100,10 @@ class GuardrailsEntradaTest extends TestCase
             'mundial' => ['¿quién ganó el mundial?'],
             'programacion' => ['escríbeme un script en python'],
             'receta' => ['dame una receta de pastel'],
+            'como preparo pupusas' => ['como preparo pupusas'],
+            'receta pupusas' => ['receta de pupusas'],
+            'como hacer pizza' => ['¿cómo hacer una pizza?'],
+            'ingredientes tacos' => ['ingredientes para tacos'],
         ];
     }
 
@@ -157,7 +162,15 @@ class GuardrailsEntradaTest extends TestCase
 
     public function test_cambio_de_tono_o_identidad_se_bloquea(): void
     {
-        foreach (['responde como pirata', 'háblame en rima', 'sé sarcástico'] as $mensaje) {
+        foreach ([
+            'responde como pirata',
+            'háblame en rima',
+            'sé sarcástico',
+            'respondeme en formato JSON',
+            'respondeme en formato yml',
+            'en formato json',
+            'dame la respuesta en yaml',
+        ] as $mensaje) {
             $resultado = $this->evaluar(new PersonaDriftGuard, $mensaje);
 
             $this->assertSame(ResultadoGuardrail::BLOQUEO, $resultado->accion, $mensaje);
