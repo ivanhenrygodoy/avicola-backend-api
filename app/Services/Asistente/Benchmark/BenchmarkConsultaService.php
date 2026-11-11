@@ -8,6 +8,7 @@ use App\Services\Asistente\PromptComposer;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 /**
  * Consultas de solo lectura del módulo Benchmark AviaCore: estadísticas, listado filtrado y detalle.
@@ -37,7 +38,7 @@ class BenchmarkConsultaService
 
         $logs = FuncionLogAgent::query()
             ->whereBetween('created_at', [$inicioUtc, $finUtc])
-            ->get(['id', 'resultado', 'tokens_prompt', 'tokens_respuesta', 'tokens_total', 'duracion_ms', 'guards_nombres', 'created_at']);
+            ->get(['id', 'resultado', 'tokens_prompt', 'tokens_respuesta', 'tokens_total', 'iteraciones', 'duracion_ms', 'guards_nombres', 'created_at']);
 
         // Serie con todos los días del rango (los días sin datos quedan en 0).
         $serie = [];
@@ -81,7 +82,7 @@ class BenchmarkConsultaService
 
         return [
             'rango' => ['desde' => $desde->format('Y-m-d'), 'hasta' => $hasta->format('Y-m-d')],
-            'totales' => [
+            'totales' => array_merge([
                 'interacciones' => $total,
                 'exitosas' => $exitosas,
                 'fast_path' => $porResultado[FuncionLogAgent::RESULTADO_FAST_PATH],
@@ -91,7 +92,7 @@ class BenchmarkConsultaService
                 'tokens_total' => $tokens,
                 'tokens_promedio' => $total > 0 ? (int) round($tokens / $total) : 0,
                 'latencia_promedio_ms' => $total > 0 ? (int) round($logs->avg('duracion_ms')) : 0,
-            ],
+            ], $this->metricasDeUso($logs, $exitosas)),
             'serie' => array_values($serie),
             'por_resultado' => array_map(
                 fn (string $resultado) => ['resultado' => $resultado, 'total' => $porResultado[$resultado]],
@@ -100,6 +101,63 @@ class BenchmarkConsultaService
             'top_guards' => $this->ranking($guards, 'guard'),
             'top_tools' => $this->topTools($inicioUtc, $finUtc),
         ];
+    }
+
+    /**
+     * Métricas de uso, calidad y rendimiento. Un turno "consultó al modelo" si no fue bloqueado por un
+     * guard ni resuelto por la vía rápida: los errores del proveedor SÍ cuentan (llegaron al modelo y
+     * pueden haber gastado tokens), por eso se distingue por resultado y no por tokens.
+     *
+     * @param  Collection<int, FuncionLogAgent>  $logs
+     * @return array<string, int|float>
+     */
+    private function metricasDeUso($logs, int $resueltas): array
+    {
+        $total = $logs->count();
+        $sinModelo = $logs->whereIn('resultado', [FuncionLogAgent::RESULTADO_BLOQUEADO, FuncionLogAgent::RESULTADO_FAST_PATH])->count();
+        $conModelo = $total - $sinModelo;
+        $consultas = $logs->reject(fn (FuncionLogAgent $l) => in_array($l->resultado, [FuncionLogAgent::RESULTADO_BLOQUEADO, FuncionLogAgent::RESULTADO_FAST_PATH], true));
+        $bloqueadas = $logs->where('resultado', FuncionLogAgent::RESULTADO_BLOQUEADO)->count();
+        $errores = $logs->where('resultado', FuncionLogAgent::RESULTADO_ERROR);
+        $pct = fn (int $n) => $total > 0 ? round($n / $total * 100, 1) : 0;
+
+        return [
+            'con_modelo' => $conModelo,
+            'sin_modelo' => $sinModelo,
+            'tokens_prompt' => (int) $logs->sum('tokens_prompt'),
+            'tokens_respuesta' => (int) $logs->sum('tokens_respuesta'),
+            'tokens_por_consulta' => $conModelo > 0 ? (int) round($logs->sum('tokens_total') / $conModelo) : 0,
+            'llamadas_por_consulta' => $conModelo > 0 ? round($consultas->sum('iteraciones') / $conModelo, 1) : 0,
+            'resueltas' => $resueltas,
+            'pct_resueltas' => $pct($resueltas),
+            'pct_bloqueadas' => $pct($bloqueadas),
+            'pct_errores' => $pct($errores->count()),
+            'espera_errores_ms' => (int) $errores->sum('duracion_ms'),
+            'latencia_mediana_ms' => $this->percentil($consultas->pluck('duracion_ms')->all(), 50),
+            'latencia_p90_ms' => $this->percentil($consultas->pluck('duracion_ms')->all(), 90),
+        ];
+    }
+
+    /**
+     * Percentil por el método del rango más cercano; el 50 se calcula como mediana clásica
+     * (promedio de los dos valores centrales cuando la cantidad es par). Lista vacía → 0.
+     *
+     * @param  array<int, int|float>  $valores
+     */
+    private function percentil(array $valores, int $p): int
+    {
+        $n = count($valores);
+        if ($n === 0) {
+            return 0;
+        }
+
+        sort($valores);
+
+        if ($p === 50) {
+            return (int) round($n % 2 === 1 ? $valores[intdiv($n, 2)] : ($valores[$n / 2 - 1] + $valores[$n / 2]) / 2);
+        }
+
+        return (int) $valores[max(0, (int) ceil($p / 100 * $n) - 1)];
     }
 
     /**
