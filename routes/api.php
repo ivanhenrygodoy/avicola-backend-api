@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AlimentacionController;
 use App\Http\Controllers\Api\V1\AsistenteBenchmarkController;
 use App\Http\Controllers\Api\V1\AsistenteController;
+use App\Http\Controllers\Api\V1\AsistenteConversacionController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AveController;
 use App\Http\Controllers\Api\V1\CasitaController;
@@ -79,6 +80,15 @@ Route::prefix('v1')->group(function () {
 
         // Módulo 7: Asistente Virtual Inteligente (IA Function Calling)
         Route::post('asistente/chat', [AsistenteController::class, 'chat']);
+
+        // Historial de conversaciones del asistente (nada se borra: "eliminar" solo cambia el estado)
+        Route::get('asistente/conversaciones', [AsistenteConversacionController::class, 'index']);
+        Route::get('asistente/conversaciones/{uuid}', [AsistenteConversacionController::class, 'show']);
+        Route::patch('asistente/conversaciones/{uuid}', [AsistenteConversacionController::class, 'update']);
+        Route::delete('asistente/conversaciones/{uuid}', [AsistenteConversacionController::class, 'destroy']);
+        // Nombre automático (una llamada corta a Gemini): con límite para que no se pueda abusar del proveedor
+        Route::post('asistente/conversaciones/{uuid}/titulo', [AsistenteConversacionController::class, 'titulo'])
+            ->middleware('throttle:10,1');
 
         // Benchmark AviaCore: auditoría de las interacciones del asistente
         Route::prefix('asistente/benchmark')->group(function () {

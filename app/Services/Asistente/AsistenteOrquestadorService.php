@@ -39,7 +39,7 @@ class AsistenteOrquestadorService
      *
      * @param  array<int, array<string, mixed>>  $historial
      * @param  array<string, mixed>  $contextoFijo
-     * @return array{respuesta: string, herramientas_utilizadas: array<int, string>, sugerencias_modulos: array<int, array<string, string>>}
+     * @return array{respuesta: string, herramientas_utilizadas: array<int, string>, sugerencias_modulos: array<int, array<string, string>>, resultado: string}
      */
     public function procesarConversacion(string $mensaje, array $historial = [], array $contextoFijo = [], ?string $uuidConversacion = null): array
     {
@@ -64,6 +64,10 @@ class AsistenteOrquestadorService
 
         $rastro->respuestaAgente = $resultado['respuesta'];
         $this->registrar($rastro);
+
+        // Resultado del turno (exitoso, fast_path o bloqueado_guard): el controlador lo usa para decidir
+        // qué entra al contexto de la conversación. No se expone al cliente.
+        $resultado['resultado'] = $rastro->resultado;
 
         return $resultado;
     }

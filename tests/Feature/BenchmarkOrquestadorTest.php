@@ -271,19 +271,30 @@ class BenchmarkOrquestadorTest extends TestCase
         $this->assertStringContainsString('|ContextTamperingGuard|', (string) $log->guards_nombres);
     }
 
-    public function test_uuid_de_conversacion_se_guarda_y_se_valida(): void
+    public function test_el_uuid_de_conversacion_de_la_auditoria_lo_deriva_el_servidor_y_no_el_cliente(): void
     {
+        // Antes el cliente aportaba el uuid y se guardaba tal cual (y uno inválido daba 422). Ahora la
+        // conversación vive en el servidor: el uuid del cliente es solo una pista y la bitácora guarda un
+        // seudónimo derivado, nunca el valor enviado.
         Sanctum::actingAs(User::factory()->create());
         Http::fake(['*' => Http::response($this->geminiTexto('Hay 12 aves.'), 200)]);
-        $uuid = '7d9c7a0e-5c36-4a35-8a6b-1f5d6c1d2b11';
+        $uuidDelCliente = '7d9c7a0e-5c36-4a35-8a6b-1f5d6c1d2b11';
 
-        $this->postJson('/api/v1/asistente/chat', ['mensaje' => '¿cuántas aves hay?', 'uuid_conversacion' => $uuid])->assertOk();
-        $this->postJson('/api/v1/asistente/chat', ['mensaje' => '¿cuántas aves hay?', 'uuid_conversacion' => 'no-es-uuid'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['uuid_conversacion']);
+        $uuidReal = $this->postJson('/api/v1/asistente/chat', ['mensaje' => '¿cuántas aves hay?', 'uuid_conversacion' => $uuidDelCliente])
+            ->assertOk()
+            ->json('data.uuid_conversacion');
+        $this->postJson('/api/v1/asistente/chat', ['mensaje' => '¿cuántas aves hay?', 'uuid_conversacion' => 'no-es-uuid'])->assertOk();
 
-        $this->assertSame($uuid, FuncionLogAgent::firstOrFail()->uuid_conversacion);
-        $this->assertSame(1, FuncionLogAgent::count());
+        $logs = FuncionLogAgent::orderBy('id')->get();
+        $this->assertCount(2, $logs);
+        $this->assertNotSame($uuidDelCliente, $uuidReal, 'El servidor ignora el uuid que no es suyo');
+        foreach ($logs as $log) {
+            $this->assertNotSame($uuidDelCliente, $log->uuid_conversacion);
+            $this->assertNotSame($uuidReal, $log->uuid_conversacion);
+            $this->assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $log->uuid_conversacion);
+        }
+        // Dos conversaciones distintas → dos seudónimos distintos
+        $this->assertNotSame($logs[0]->uuid_conversacion, $logs[1]->uuid_conversacion);
     }
 
     public function test_el_log_nunca_guarda_al_usuario_que_escribio_el_mensaje(): void

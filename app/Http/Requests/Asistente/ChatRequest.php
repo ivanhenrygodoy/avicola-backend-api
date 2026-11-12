@@ -18,10 +18,11 @@ class ChatRequest extends FormRequest
     {
         return [
             'mensaje' => ['required', 'string', 'min:1', 'max:1000'],
-            'historial' => ['nullable', 'array', 'max:20'],
-            'historial.*.role' => ['required_with:historial', 'string', 'in:user,model'],
-            'historial.*.parts' => ['required_with:historial', 'array'],
-            'uuid_conversacion' => ['nullable', 'uuid'],
+            // El historial ya no lo manda el navegador: el servidor arma el contexto desde la conversación
+            // guardada, así que un `historial` enviado por el cliente simplemente se ignora (no se valida).
+            // El UUID es solo una pista de qué conversación retomar; si no es válido o no es del usuario se
+            // ignora y se crea otra, por eso no se rechaza con 422.
+            'uuid_conversacion' => ['nullable', 'string', 'max:64'],
         ];
     }
 
@@ -35,8 +36,6 @@ class ChatRequest extends FormRequest
             'mensaje.string' => 'El mensaje debe ser una cadena de texto.',
             'mensaje.min' => 'El mensaje debe contener al menos 1 caracter.',
             'mensaje.max' => 'El mensaje no puede exceder los 1000 caracteres.',
-            'historial.array' => 'El historial debe ser un arreglo.',
-            'historial.max' => 'El historial no puede superar los 20 mensajes.',
         ];
     }
 }
