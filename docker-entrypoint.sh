@@ -11,8 +11,9 @@ mkdir -p /var/www/html/bootstrap/cache
 # Permisos para storage y cache
 chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Instalar dependencias si vendor no existe (por ejemplo en volumen montado vacío)
-if [ ! -d "/var/www/html/vendor" ]; then
+# Instalar dependencias si vendor está vacío. Se comprueba autoload.php y no el directorio: vendor/ es un
+# volumen de Docker, así que el directorio siempre existe aunque esté vacío (primer arranque).
+if [ ! -f "/var/www/html/vendor/autoload.php" ]; then
     echo "Instalando dependencias de Composer..."
     composer install --no-interaction --prefer-dist
 fi

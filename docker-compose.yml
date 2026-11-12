@@ -12,6 +12,9 @@ services:
         condition: service_healthy
     volumes:
       - .:/var/www/html
+      # vendor/ en un volumen de Docker: en Windows/macOS el bind mount hace cada lectura de archivo
+      # muy lenta (3-8 s por petición). Ver docs/superpowers/plans/2026-11-12-diagnostico-latencia-api.md
+      - vendor_data:/var/www/html/vendor
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
@@ -48,6 +51,8 @@ services:
 volumes:
   postgres_data:
     driver: local
+  vendor_data:
+    name: avicola_vendor
 
 networks:
   avicola_network:
