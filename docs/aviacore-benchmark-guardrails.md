@@ -34,7 +34,7 @@ Retomando el restaurante de [`aviacore-arquitectura-harness.md`](aviacore-arquit
 
 ## 3. El viaje de un mensaje, ahora con auditoría
 
-1. El operario escribe en el widget. El widget agrega un identificador anónimo de conversación (`uuid_conversacion`).
+1. El operario escribe en el widget. El widget envía el UUID de la conversación que tiene abierta (si hay una); el servidor lo valida contra el usuario autenticado y, si no sirve, crea otra.
 2. El backend pasa el mensaje por los **guardrails de entrada**. Si alguno bloquea, el turno termina ahí con una respuesta estándar: **0 tokens, 0 llamadas al modelo**.
 3. Si pasa, Gemini decide si necesita herramientas. Cada petición de herramienta pasa por el **guardrail de herramienta** (validación de argumentos) y el **guardrail de bucle** (máximo 3 iteraciones).
 4. Con la respuesta del modelo en mano, los **guardrails de salida** la corrigen o la reemplazan si hace falta.
@@ -53,7 +53,8 @@ Dos pestañas, con el mismo interruptor de píldoras que usa Producción:
 * **No guarda quién escribió el mensaje.** La tabla no tiene ninguna columna de usuario.
 * Los **argumentos de las herramientas** se guardan sin claves de identidad (`id_usuario`, `user_id`, `usuario`, `email`, `id_user`), y esas claves **también se descartan antes de ejecutar la herramienta**: la identidad del usuario solo viaja en el contexto de sesión del backend, nunca en lo que el modelo pide.
 * Los **errores se guardan saneados**: sin la API key de Gemini (que aparece en la URL de los errores de red) ni rutas de código. La traza completa va únicamente a `storage/logs/laravel.log`.
-* El `uuid_conversacion` es aleatorio y lo genera el navegador: sirve para agrupar los turnos de una conversación, no para identificar a una persona.
+* El `uuid_conversacion` de la auditoría es un **seudónimo** `HMAC-SHA256(uuid de la conversación, APP_KEY)` con formato UUID: agrupa los turnos de una misma conversación, pero no se puede unir con la tabla de conversaciones sin la clave de la aplicación.
+* **Seudonimización, no anonimato absoluto.** Las conversaciones persistentes (`mnt_conversaciones_asistente` y `mnt_mensajes_asistente`) sí están ligadas al usuario y guardan el texto completo de cada mensaje, de modo que ese texto existe también fuera de la auditoría. La auditoría sigue sin columna de usuario ni clave hacia esas tablas y el Benchmark no las lee, pero quien tenga acceso a la base de datos podría correlacionar por texto y hora. Por eso la documentación dice "sin referencia al usuario" y no "anónimo".
 
 > **Aviso:** el mensaje del operario es texto libre y puede contener datos personales que él mismo escriba. El acceso a Benchmark es para cualquier usuario autenticado (aún no hay roles); si se crean roles, conviene restringir `asistente/benchmark/*`. La depuración manual de logs antiguos está implementada desde la pantalla (3, 6 o 12 meses); la depuración automática como comando programado queda para fase 2.
 
@@ -65,7 +66,7 @@ Dos pestañas, con el mismo interruptor de píldoras que usa Producción:
 
 ```mermaid
 flowchart TD
-    A[Widget AviaCore] -->|POST /asistente/chat + uuid_conversacion| B[AsistenteController]
+    A[Widget AviaCore] -->|POST /asistente/chat + uuid de la conversación abierta| B[AsistenteController]
     B --> C[AsistenteOrquestadorService]
     C --> D{Guardrails de ENTRADA}
     D -->|bloqueo / fast_path| R[Respuesta estándar · 0 tokens]
@@ -158,7 +159,7 @@ Antes de este módulo no existía una carpeta de guards, pero el harness ya vali
 
 | Validación previa | Dónde vivía | Estado actual |
 |---|---|---|
-| Mensaje de 1 a 1000 caracteres e historial de hasta 20 | `ChatRequest` | Sin cambios (capa HTTP, no es un guard) |
+| Mensaje de 1 a 1000 caracteres | `ChatRequest` | Sin cambios (capa HTTP, no es un guard). El historial de hasta 20 mensajes que antes validaba ya no lo manda el navegador: lo arma el servidor desde la conversación guardada (ver README del backend, 5.10) |
 | Identidad inmutable del usuario (anti-IDOR) | `$contextoFijo` inyectado por el controlador | Sin cambios; se suma `ContextTamperingGuard` (aviso) y el descarte de las claves de identidad que el modelo pase a una tool |
 | Máximo 3 iteraciones de Function Calling | Constante `MAX_ITERACIONES` del orquestador | `ToolLoopGuard::LIMITE`, con el mismo mensaje |
 | Saludos y cortesías sin consumir tokens | `SaludoDetectorService` | `SaludoFastPathGuard`, que **envuelve** el mismo servicio |
@@ -183,7 +184,7 @@ Antes de este módulo no existía una carpeta de guards, pero el harness ya vali
 | Columna | Tipo | Descripción |
 |---|---|---|
 | `id` | PK | |
-| `uuid_conversacion` | uuid nullable, índice | Identificador anónimo generado por el widget |
+| `uuid_conversacion` | uuid nullable, índice | Seudónimo derivado del UUID de la conversación (HMAC con la clave de la aplicación); no es el UUID real |
 | `mensaje_usuario` | text | Mensaje del operario (máx. 1000 por validación) |
 | `turnos_historial` | smallint | Mensajes previos enviados como historial |
 | `prompt_version` | string(20) | Hash corto (12 caracteres) del prompt vigente en ese turno |
@@ -351,7 +352,7 @@ Detalle en el README del frontend (sección 6.8). En resumen:
 | Estado | `stores/benchmark.js`, `services/benchmark.js` | Solo la última petición de cada recurso escribe en el estado (sin carreras al cambiar de rango o filtrar rápido) |
 | Etiquetas y formatos | `utils/benchmark.js` | Fuente única de etiquetas y variantes de badge, y de los formateadores de números (`formatNumber`, `formatCompacto`, `formatEjeCompacto`, `formatDuracion`, `formatPorcentaje`) |
 
-El widget del asistente (`stores/asistente.js`) genera el `uuidConversacion` con `crypto.randomUUID()` (se renueva al limpiar la conversación) y lo envía en cada mensaje; si el navegador no lo soporta, simplemente no se envía.
+El widget del asistente (`stores/asistente.js`) guarda en `localStorage` el UUID de la conversación abierta, que **genera el servidor** (ya no `crypto.randomUUID()`), lo envía en cada mensaje y lo usa para recuperar la conversación al recargar. El detalle del historial está en el README del frontend (6.7).
 
 ## 6. Pruebas automatizadas
 
@@ -374,8 +375,11 @@ docker compose exec -T -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_URL
 | `BenchmarkApiTest` | Autenticación, validación, estadísticas (días rellenados, zona horaria), filtros, paginación, detalle, ausencia de datos de usuario |
 | `BenchmarkMetricasTest` | Métricas de `totales`: separación con/sin modelo por resultado (no por tokens), entrada y salida, tokens y llamadas por consulta, porcentajes, espera de errores, mediana y p90 solo con modelo, rango de días y ceros sin dividir por cero |
 | `DepuracionLogsAgenteTest` | Validación lista cerrada (3, 6, 12 meses), cálculo de corte, vista previa, eliminación por lotes sin violar FK, auditoría sin texto privado |
+| `ConversacionAsistenteTest` | Esquema (varias conversaciones por usuario, `restrictOnDelete`, la auditoría no gana referencias), `buscar` solo de las activas del usuario, contexto (últimos N, empieza con el usuario, sin ventana de tiempo, excluye saludos, bloqueos y errores), tope de configuración inválida, nombre visible ("Conversación") y respaldo, listado, eliminar sin borrar y seudónimo de auditoría |
+| `ConversacionAsistenteApiTest` | El chat crea y retoma la conversación, ignora el `historial` y el UUID ajeno del cliente, guarda el turno (también errores), `requiere_titulo`, la capa de conversación no rompe el chat, y los endpoints del historial (aislamiento entre usuarios, 404 idéntico, eliminar solo cambia el estado, renombrar) |
+| `TituloConversacionTest` | Nombre automático: una sola vez, solo primera consulta y respuesta truncadas y sin herramientas, respaldo ante 503, respuesta vacía, larga o con datos internos, nombre manual nunca se pisa, límite de peticiones y que no se audite |
 
-Estado al elaborar este documento: **269 pruebas en verde** (la línea base previa era de 104).
+Estado al elaborar este documento: **357 pruebas en verde** (la línea base previa era de 104).
 
 ## 7. Cómo extender
 

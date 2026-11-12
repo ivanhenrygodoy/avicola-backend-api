@@ -76,10 +76,12 @@ app/
 └── Services/
     ├── Asistente/            # Orquestador, tools y RAG del asistente (módulos 5.7 y 5.8)
     │   ├── Guardrails/       # Guards de entrada, tool, bucle y salida + pipeline (módulo 5.9)
-    │   └── Benchmark/        # Registro de auditoría y consultas del Benchmark (módulo 5.9)
+    │   ├── Benchmark/        # Registro de auditoría y consultas del Benchmark (módulo 5.9)
+    │   └── Conversacion/     # Conversaciones persistentes, contexto y nombre automático (módulo 5.10)
     ├── Aves/                 # TrasladarAveService
     └── Dashboard/            # Resumen analítico y actividad (ver módulo 6)
 config/avicola.php            # Configuración propia (zona horaria de negocio)
+config/asistente.php          # Contexto, listado y nombre de las conversaciones del asistente
 config/guardrails.php         # Patrones, vocabulario de la granja y mensajes estándar de los guards
 database/{migrations,seeders} # Esquema y datos
 routes/api.php                # Todas las rutas bajo /api/v1
@@ -95,7 +97,7 @@ Flujo de una petición: **ruta → FormRequest (valida) → controlador (delgado
 | Tipo | Prefijo | Ejemplos |
 |---|---|---|
 | Catálogos | `ctl_` | `ctl_especie`, `ctl_sexo`, `ctl_proposito`, `ctl_tipo_instalacion`, `ctl_tipos_alimento`, `ctl_categorias_gastos` |
-| Negocio / operación | `mnt_` | `mnt_usuarios`, `mnt_granjas`, `mnt_casitas`, `mnt_divisiones`, `mnt_aves`, `mnt_movimientos_aves`, `mnt_registros_peso`, `mnt_observaciones_aves`, `mnt_registros_huevos`, `mnt_registros_alimentacion`, `mnt_gastos`, `mnt_funcion_log_agent`, `mnt_funcion_log_agent_tools` |
+| Negocio / operación | `mnt_` | `mnt_usuarios`, `mnt_granjas`, `mnt_casitas`, `mnt_divisiones`, `mnt_aves`, `mnt_movimientos_aves`, `mnt_registros_peso`, `mnt_observaciones_aves`, `mnt_registros_huevos`, `mnt_registros_alimentacion`, `mnt_gastos`, `mnt_funcion_log_agent`, `mnt_funcion_log_agent_tools`, `mnt_conversaciones_asistente`, `mnt_mensajes_asistente` |
 
 - **Clave primaria:** `id`.
 - **Claves foráneas:** siempre `id_<entidad>` (`id_granja`, `id_casita`, `id_division`, `id_ave`, `id_especie`, `id_categoria_gasto`…). Para relaciones con rol, `id_division_origen` / `id_division_destino`.
@@ -202,11 +204,16 @@ Endpoint para consultas operativas en lenguaje natural sin riesgo de inyecciones
 
 | Método | Ruta | Parámetros | Devuelve |
 |---|---|---|---|
-| POST | `/asistente/chat` | `mensaje` (string <= 1000), `historial` (array <= 20), `uuid_conversacion` (uuid, opcional) | `respuesta` (texto), `herramientas_utilizadas` (array), `sugerencias_modulos` (array) |
+| POST | `/asistente/chat` | `mensaje` (string <= 1000), `uuid_conversacion` (string, opcional: la conversación que se retoma) | `respuesta` (texto), `herramientas_utilizadas` (array), `sugerencias_modulos` (array), `uuid_conversacion` (la conversación real, o `null` si no se pudo guardar) y `requiere_titulo` (si el cliente debe pedir el nombre automático) |
+| GET | `/asistente/conversaciones` | — | Conversaciones **activas** del usuario, las más recientes primero: `uuid`, `nombre`, `vista_previa`, `ultima_actividad`, `total_mensajes` |
+| GET | `/asistente/conversaciones/{uuid}` | — | `uuid`, `nombre` y los últimos mensajes (`rol`, `contenido`, `herramientas`, `sugerencias_modulos`, `es_error`) |
+| PATCH | `/asistente/conversaciones/{uuid}` | `nombre` (1 a 60 caracteres, una sola línea) | Renombra la conversación (nombre manual) |
+| DELETE | `/asistente/conversaciones/{uuid}` | — | La quita del historial: **solo cambia el estado**, no borra nada |
+| POST | `/asistente/conversaciones/{uuid}/titulo` | — | Genera el nombre automático (una sola vez; 10 peticiones por minuto) |
 
 - **Diseño (SRP + OCP + DIP):** Cada herramienta implementa `AsistenteToolInterface` (`nombre`, `descripcion`, `tablasConsultadas`, `esquema`, `ejecutar`) en `app/Services/Asistente/Tools/`. `AppServiceProvider` las inyecta en `AsistenteToolRegistry`. `tablasConsultadas()` declara qué tablas lee la herramienta y alimenta la auditoría del Benchmark.
 - **Guardrails y auditoría:** `AsistenteOrquestadorService` ejecuta el `GuardrailPipeline` (entrada, tool, bucle y salida) y deja el rastro de cada turno en la bitácora del Benchmark. Ver [5.9](#59-guardrails-y-benchmark-aviacore-auditoría-del-agente). Un mensaje fuera del dominio (por ejemplo `suma 2+3`) se responde en el backend, **sin llamar a Gemini**.
-- **`uuid_conversacion`:** identificador anónimo que genera el widget del frontend para agrupar los turnos de una misma conversación en el Benchmark; no deriva del usuario.
+- **Conversaciones persistentes (`ConversacionAsistenteService`):** la conversación vive en el servidor, ligada al usuario, en `mnt_conversaciones_asistente` y `mnt_mensajes_asistente` (cada mensaje lleva `rol`: `user` o `model`). Ver [5.10](#510-conversaciones-persistentes-e-historial-del-asistente).
 - **System Instruction en 4 capas (`PromptComposer`):** Harness Base (fuente de verdad), Seguridad (anti-prompt-injection), Estilo (1 a 3 oraciones, `DD-MM-YYYY`, máximo 1 emoji) y Dominio Avícola (casitas, divisiones, segregación biológica).
 - **Anti-IDOR (`contexto_fijo`):** El `id_usuario` autenticado por Sanctum se inyecta desde la sesión del backend y nunca se confía al LLM.
 - **Payloads compactos:** Las tools retornan métricas calculadas y muestras de hasta 5 registros para no saturar la ventana de tokens.
@@ -282,7 +289,7 @@ Cada turno se guarda en **`mnt_funcion_log_agent`** (un registro por turno) y **
 | Prompt | `prompt_version`: hash corto del prompt vigente; el texto completo se lee del código, no se duplica en cada fila |
 | Tools | `herramienta`, `argumentos`, `tablas_consultadas` (las declara cada tool), `resumen_resultado`, `exito`, `duracion_ms` |
 
-- **Confidencialidad:** la tabla **no tiene ninguna columna de usuario**. Los argumentos de las tools se guardan sin claves de identidad (`id_usuario`, `user_id`, `usuario`, `email`, `id_user`) y esas claves también se descartan antes de ejecutar la tool: la identidad solo viaja en `$contextoFijo`. `uuid_conversacion` es un identificador anónimo generado por el widget.
+- **Confidencialidad:** la tabla **no tiene ninguna columna de usuario** ni clave hacia las conversaciones. Los argumentos de las tools se guardan sin claves de identidad (`id_usuario`, `user_id`, `usuario`, `email`, `id_user`) y esas claves también se descartan antes de ejecutar la tool: la identidad solo viaja en `$contextoFijo`. Su `uuid_conversacion` es un **seudónimo** `HMAC-SHA256(uuid de la conversación, APP_KEY)` con formato UUID: todos los turnos de una conversación lo comparten, pero no se puede unir con `mnt_conversaciones_asistente` sin la clave de la aplicación. Es seudonimización, no anonimato absoluto: el texto de cada mensaje existe también en `mnt_mensajes_asistente` (ligado al usuario), así que quien tenga la base de datos podría correlacionar por texto y hora.
 - **Errores:** `error_mensaje` se guarda saneado y truncado (sin API key ni rutas); la traza completa va únicamente a `storage/logs/laravel.log`.
 - **El chat no depende del registro:** `FuncionLogAgentService::registrar()` nunca lanza; si falla, lo deja en `laravel.log` y la respuesta al operario sale igual. Ante un error del proveedor se registra `resultado = error` y se relanza para que el controlador conserve su respuesta 503.
 - **Sin purga automática por ahora:** los logs se guardan indefinidamente (depuración planificada, ver `Proyects-IA/docs/superpowers/plans/2026-11-10-depuracion-logs-benchmark.md`).
@@ -310,6 +317,23 @@ Todas bajo `auth:sanctum` (cualquier usuario autenticado; aún no hay roles) en 
 - Los días se agrupan en la **zona horaria de negocio** (`config('avicola.timezone')`), no en UTC; los filtros de fecha son inclusivos en esa zona.
 - `search` y `guard` tratan `%` y `_` como texto literal. El escape usa `ESCAPE '!'` y no la barra invertida: PDO-pgsql falla con `ESCAPE '\'` ("Invalid parameter number") aunque SQLite lo acepte.
 
+### 5.10 Conversaciones persistentes e historial del asistente
+
+La conversación con AviaCore sobrevive a recargar la página y el usuario puede retomar las anteriores. **Nada se borra**: "eliminar" cambia el estado de la conversación para que deje de aparecerle al usuario. Diseño en `Proyects-IA/docs/superpowers/specs/2026-11-11-historial-conversaciones-asistente-design.md`.
+
+| Tabla | Contenido |
+|---|---|
+| `mnt_conversaciones_asistente` | `id_usuario` (FK, `restrictOnDelete()`), `uuid` (único), `nombre`, `nombre_origen` (`pendiente`, `automatico` o `manual`), `estado` (`activa` o `eliminada`), `eliminada_at`, `ultima_actividad_at`. Varias por usuario |
+| `mnt_mensajes_asistente` | `id_conversacion_asistente` (FK, `restrictOnDelete()`), `rol` (`user` o `model`), `contenido`, `herramientas` y `sugerencias_modulos` (JSON, para repintar las insignias), `es_error`, `en_contexto` |
+
+- **El UUID de la conversación lo genera el servidor** en el primer mensaje y el navegador lo guarda. No es un secreto: **cada acceso se valida contra el usuario autenticado** (anti-IDOR). Un UUID ajeno, inexistente, eliminado o con formato inválido es indistinguible: `404 {"success": false, "message": "Conversación no encontrada."}`. Un `uuid_conversacion` ajeno enviado al chat no se usa: se crea otra conversación.
+- **El historial ya no lo manda el navegador.** `ChatRequest` ya no valida `historial` y, si llega, se ignora: el servidor arma el contexto desde la conversación guardada, así nadie puede inyectar turnos falsos del modelo.
+- **Contexto para el modelo:** los últimos `contexto_mensajes` (6) mensajes de turnos **exitosos** (`en_contexto`), sin ventana de tiempo, y siempre empezando por uno del usuario. Los saludos, bloqueos de guards y errores se guardan y se muestran, pero no se reenvían. Ahorra unos 64 tokens por mensaje que no se reenvía.
+- **Nombre:** `TituloConversacionService` lo genera una sola vez, tras el primer turno exitoso, con una llamada aparte, corta y sin herramientas a Gemini (consulta y respuesta truncadas a 300 caracteres). El chat devuelve `requiere_titulo` y el cliente lo pide en otra petición, así no suma latencia. Si Gemini falla o devuelve algo vacío, largo o con datos internos (`mnt_`, rutas), se usa el comienzo de la consulta. Un nombre manual nunca se pisa. Una conversación sin ningún turno exitoso se lista como **"Conversación"**. La llamada de nombrado **no se audita** en el Benchmark (consume tokens que sus estadísticas no cuentan).
+- **La capa de conversación nunca rompe el chat:** si buscar, crear o guardar falla, se registra en `laravel.log` y el turno se responde igual (con `uuid_conversacion` en `null`).
+- **Configuración** (`config/asistente.php`, cada valor con su variable de entorno; uno cero, negativo o no numérico se ignora): `contexto_mensajes` (6), `listado_max` (50), `mensajes_max_carga` (100) y `nombre_max` (60).
+- **Sin expiración ni depuración:** las conversaciones y los mensajes se conservan indefinidamente.
+
 ---
 
 ## 6. Principios SOLID aplicados
@@ -331,13 +355,14 @@ Todas bajo `auth:sanctum` (cualquier usuario autenticado; aún no hay roles) en 
 - **CORS restrictivo** (`config/cors.php`): solo `http://localhost:5173` y `http://127.0.0.1:5173`. Cualquier otro origen del frontend debe añadirse ahí.
 - Validación de toda entrada con `FormRequest`; eager loading (`with(...)`) para evitar consultas N+1; transacciones en operaciones que modifican varias tablas.
 - `.env`, la base SQLite local y los logs están fuera de git.
-- **Auditoría del asistente sin datos de usuario:** `mnt_funcion_log_agent` no guarda quién escribió cada mensaje; los errores se guardan saneados (sin API key ni rutas). El acceso al Benchmark es para cualquier usuario autenticado y expone los mensajes de los operarios (anónimos) y el prompt del sistema: si se crean roles, restringe `asistente/benchmark/*`.
+- **Auditoría del asistente sin referencia al usuario:** `mnt_funcion_log_agent` no guarda quién escribió cada mensaje ni clave alguna hacia las conversaciones; los errores se guardan saneados (sin API key ni rutas). El acceso al Benchmark es para cualquier usuario autenticado y expone los mensajes de los operarios (sin su identidad) y el prompt del sistema: si se crean roles, restringe `asistente/benchmark/*`.
+- **Conversaciones del asistente ligadas al usuario:** `mnt_conversaciones_asistente` y `mnt_mensajes_asistente` sí guardan el texto completo de cada conversación y a quién pertenece. Todo acceso se valida contra el usuario autenticado (un UUID ajeno responde 404, igual que uno inexistente) y el Benchmark no las lee. Nada se borra: quitar una conversación del historial solo cambia su estado.
 
 ---
 
 ## 8. Pruebas
 
-Las pruebas están en `tests/Feature/` y usan `RefreshDatabase`: `AuthTest`, `InstalacionesTest`, `AvesTest`, `ProduccionTest`, `SeguimientoGastosTest`, `DashboardTest`, `AsistenteTest`, `RagTest` y las del asistente y su auditoría: `GuardrailsPipelineTest`, `GuardrailsEntradaTest`, `GuardrailsEntradaRegresionTest`, `GuardrailsSalidaTest`, `GuardrailsToolTest`, `BenchmarkLogTest`, `BenchmarkRegistradorTest`, `BenchmarkOrquestadorTest`, `BenchmarkApiTest`, `BenchmarkMetricasTest` y `DepuracionLogsAgenteTest`.
+Las pruebas están en `tests/Feature/` y usan `RefreshDatabase`: `AuthTest`, `InstalacionesTest`, `AvesTest`, `ProduccionTest`, `SeguimientoGastosTest`, `DashboardTest`, `AsistenteTest`, `RagTest` y las del asistente y su auditoría: `GuardrailsPipelineTest`, `GuardrailsEntradaTest`, `GuardrailsEntradaRegresionTest`, `GuardrailsSalidaTest`, `GuardrailsToolTest`, `BenchmarkLogTest`, `BenchmarkRegistradorTest`, `BenchmarkOrquestadorTest`, `BenchmarkApiTest`, `BenchmarkMetricasTest`, `DepuracionLogsAgenteTest` y las de conversaciones del asistente: `ConversacionAsistenteTest`, `ConversacionAsistenteApiTest` y `TituloConversacionTest`.
 
 > ### ⚠️ Advertencia importante: aislamiento de la base de datos
 >

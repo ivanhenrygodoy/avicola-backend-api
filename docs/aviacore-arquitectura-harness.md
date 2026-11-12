@@ -61,16 +61,20 @@ avicola-backend-api/
 │   ├── Http/
 │   │   ├── Controllers/Api/V1/
 │   │   │   ├── AsistenteController.php            # POST /asistente/chat (delgado: valida, inyecta contexto, delega)
+│   │   │   ├── AsistenteConversacionController.php # GET/PATCH/DELETE /asistente/conversaciones/* y POST .../titulo (historial)
 │   │   │   ├── AsistenteBenchmarkController.php   # GET /asistente/benchmark/* (estadísticas, logs y detalle)
 │   │   │   └── DepuracionLogsAgenteController.php # GET/DELETE /asistente/benchmark/depuracion (purga manual)
 │   │   └── Requests/Asistente/
-│   │       ├── ChatRequest.php                    # mensaje (1-1000), historial (<=20), uuid_conversacion
+│   │       ├── ChatRequest.php                    # mensaje (1-1000) y uuid_conversacion (pista de qué conversación retomar)
+│   │       ├── RenombrarConversacionRequest.php   # nombre de la conversación (1-60, una sola línea)
 │   │       ├── EstadisticasBenchmarkRequest.php   # dias = 7 | 30
 │   │       ├── FiltroLogsAgenteRequest.php        # filtros del listado de logs
 │   │       └── DepuracionLogsAgenteRequest.php    # meses = 3 | 6 | 12 (lista cerrada)
 │   ├── Models/
 │   │   ├── FuncionLogAgent.php                    # turno auditado (mnt_funcion_log_agent)
 │   │   ├── FuncionLogAgentTool.php                # tool ejecutada en un turno
+│   │   ├── ConversacionAsistente.php              # conversación del usuario (mnt_conversaciones_asistente; nunca se borra)
+│   │   ├── MensajeAsistente.php                   # mensaje de una conversación, con la bandera rol (user | model)
 │   │   ├── CtlDocumentoTecnico.php                # catálogo de manuales (RAG)
 │   │   └── MntDocumentoFragmento.php              # fragmentos con vector (RAG)
 │   ├── Console/Commands/IngestarManualesCommand.php   # php artisan avicola:ingestar-manuales
@@ -94,12 +98,16 @@ avicola-backend-api/
 │       │   ├── Tool/                              #   ToolArgumentValidationGuard
 │       │   ├── Bucle/                             #   ToolLoopGuard
 │       │   └── Salida/                            #   4 guards, sobre la respuesta del modelo
+│       ├── Conversacion/                          # conversaciones persistentes (por usuario)
+│       │   ├── ConversacionAsistenteService.php   #   buscar/crear, contexto, guardar turnos, listar, renombrar, "eliminar" (cambia el estado)
+│       │   └── TituloConversacionService.php      #   nombre automático con una llamada corta a Gemini
 │       └── Benchmark/                             # auditoría
 │           ├── RastroTurno.php                    #   acumula lo ocurrido en un turno (sin tocar la BD)
 │           ├── FuncionLogAgentService.php         #   persiste el turno; nunca lanza
 │           ├── BenchmarkConsultaService.php       #   estadísticas, listado y detalle
 │           └── DepuracionLogsAgenteService.php    #   vista previa y borrado por lotes (3, 6, 12 meses)
 ├── config/
+│   ├── asistente.php                              # contexto (6 mensajes), listado y nombre de las conversaciones
 │   ├── gemini.php                                 # api_key, modelo, timeout, embeddings
 │   └── guardrails.php                             # mensajes, vocabulario de la granja y patrones
 ├── database/{migrations,seeders}/                 # tablas del log; BenchmarkDemoSeeder y DocumentosTecnicosSeeder
@@ -108,7 +116,7 @@ avicola-backend-api/
 avicola-frontend/src/
 ├── components/asistente/    # AsistenteChatWidget, AsistenteMensaje, AsistenteIndicador
 ├── components/benchmark/    # SerieDiariaCard, RankingCard, LogDetalleModal
-├── stores/                  # asistente.js (chat y uuidConversacion) y benchmark.js
+├── stores/                  # asistente.js (chat, conversación persistente e historial) y benchmark.js
 ├── services/                # asistente.js y benchmark.js (clientes HTTP)
 ├── utils/benchmark.js       # etiquetas de resultado, acción y fase de los guards
 └── views/BenchmarkView.vue  # pantalla /benchmark
@@ -207,8 +215,9 @@ sequenceDiagram
     participant LLM as Google Gemini (3.1-flash-lite)
 
     Operador->>UI: Escribe "¿Cuántas gallinas y patos tenemos activos?"
-    UI->>Ctrl: POST /api/v1/asistente/chat { mensaje, historial }
-    Ctrl->>Orq: procesar(mensaje, historial, contextoFijo)
+    UI->>Ctrl: POST /api/v1/asistente/chat { mensaje, uuid_conversacion }
+    Ctrl->>Ctrl: Resuelve la conversación del usuario y arma el contexto (últimos mensajes exitosos)
+    Ctrl->>Orq: procesar(mensaje, contexto, contextoFijo)
     
     Orq->>Orq: Compone System Instruction (PromptComposer::componer)
     Orq->>Reg: obtenerDeclaracionesTools()
@@ -242,7 +251,7 @@ sequenceDiagram
 ### Detalle de las Etapas del Pipeline
 
 1. **Recepción y Validación (`ChatRequest`):**  
-   El endpoint valida que el mensaje no esté vacío (máximo 1,000 caracteres) y que el historial opcional cumpla con el esquema `{ role: 'user'|'model', text: string }`.
+   El endpoint valida que el mensaje no esté vacío (máximo 1,000 caracteres). El historial **ya no lo envía el navegador**: el servidor lo arma desde la conversación guardada del usuario (ver README del backend, 5.10) y descarta cualquier `historial` que llegue en la petición.
 2. **Inyección de Contexto Fijo:**  
    El controlador extrae de la petición autenticada vía Laravel Sanctum el `id_usuario` y lo empaqueta en un array inmutable:
    ```php
@@ -414,7 +423,7 @@ El widget de AviaCore fue diseñado respetando rigurosamente los principios de a
 3. [`AsistenteIndicador.vue`]:
    - Animación de tres puntos pulsantes en color `salvia` para indicar que el modelo está ejecutando herramientas o razonando la respuesta.
 4. [`stores/asistente.js` (Pinia)]:
-   - Gestión centralizada del estado: visibilidad (`isOpen`), lista reactiva de mensajes, bandera de carga (`cargando`) y acciones `enviarMensaje()` y `limpiarHistorial()`.
+   - Gestión centralizada del estado: visibilidad (`isOpen`), lista reactiva de mensajes, bandera de carga (`cargando`), UUID de la conversación abierta (persistido en `localStorage`), listado del historial y acciones `enviarMensaje()`, `cargarConversacion()`, `abrirConversacion()`, `eliminarConversacion()` y `limpiarHistorial()` (que ahora solo vacía el chat y suelta el UUID, sin borrar nada).
 
 ---
 
