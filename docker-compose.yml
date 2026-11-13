@@ -28,6 +28,38 @@ services:
     networks:
       - avicola_network
 
+  # Worker de la cola (`QUEUE_CONNECTION=database`): envía por debajo el correo de credenciales
+  # iniciales al crear un usuario. Misma imagen, código y .env que `api`. No publica puertos.
+  # Espera a que PostgreSQL esté sano igual que `api`, así `docker compose up -d` levanta todo en orden.
+  # Los `MAIL_*` los lee del `.env` montado en el volumen (no hace falta repetirlos aquí).
+  # El worker NO recarga código: tras tocar un job, un correo o el .env, `docker compose restart queue`.
+  # `--max-time=3600` lo reinicia solo cada hora (`restart: unless-stopped` lo vuelve a levantar).
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: avicola_queue
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["php", "artisan", "queue:work", "--tries=3", "--backoff=30", "--max-time=3600"]
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8005
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: avicola_inteligente_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    networks:
+      - avicola_network
+
   postgres:
     image: pgvector/pgvector:pg16
     container_name: avicola_postgres
