@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Historial de conversaciones del usuario con el asistente: listar, abrir, renombrar y quitar del historial.
+ * Historial de conversaciones del usuario con el asistente: listar, abrir, renombrar y eliminar del historial.
  *
  * Todo opera solo sobre las conversaciones activas del usuario autenticado. Una conversación ajena,
  * inexistente, eliminada o con UUID inválido responde el mismo 404, para que no se pueda enumerar.

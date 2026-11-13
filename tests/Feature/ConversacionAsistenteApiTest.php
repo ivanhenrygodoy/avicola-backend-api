@@ -416,6 +416,17 @@ class ConversacionAsistenteApiTest extends TestCase
         }
     }
 
+    public function test_eliminar_no_usa_la_palabra_quitar_en_la_respuesta(): void
+    {
+        $yo = $this->usuario();
+        $c = $this->conversacionDe($yo);
+
+        $r = $this->deleteJson("/api/v1/asistente/conversaciones/{$c->uuid}")->assertOk();
+
+        $this->assertSame('Conversación eliminada del historial.', $r->json('message'));
+        $this->assertStringNotContainsStringIgnoringCase('quit', $r->json('message'));
+    }
+
     public function test_eliminar_cambia_el_estado_sin_borrar_filas(): void
     {
         $yo = $this->usuario();

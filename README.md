@@ -232,7 +232,7 @@ Endpoint para consultas operativas en lenguaje natural sin riesgo de inyecciones
 | GET | `/asistente/conversaciones` | — | Conversaciones **activas** del usuario, las más recientes primero: `uuid`, `nombre`, `vista_previa`, `ultima_actividad`, `total_mensajes` |
 | GET | `/asistente/conversaciones/{uuid}` | — | `uuid`, `nombre` y los últimos mensajes (`rol`, `contenido`, `herramientas`, `sugerencias_modulos`, `es_error`) |
 | PATCH | `/asistente/conversaciones/{uuid}` | `nombre` (1 a 60 caracteres, una sola línea) | Renombra la conversación (nombre manual) |
-| DELETE | `/asistente/conversaciones/{uuid}` | — | La quita del historial: **solo cambia el estado**, no borra nada |
+| DELETE | `/asistente/conversaciones/{uuid}` | — | La elimina del historial: **solo cambia el estado**, no borra nada |
 | POST | `/asistente/conversaciones/{uuid}/titulo` | — | Genera el nombre automático (una sola vez; 10 peticiones por minuto) |
 
 - **Diseño (SRP + OCP + DIP):** Cada herramienta implementa `AsistenteToolInterface` (`nombre`, `descripcion`, `tablasConsultadas`, `esquema`, `ejecutar`) en `app/Services/Asistente/Tools/`. `AppServiceProvider` las inyecta en `AsistenteToolRegistry`. `tablasConsultadas()` declara qué tablas lee la herramienta y alimenta la auditoría del Benchmark.
@@ -417,7 +417,7 @@ Cómo asignar permisos: el superAdmin entra a **Permisos** (matriz rol × módul
 - Validación de toda entrada con `FormRequest`; eager loading (`with(...)`) para evitar consultas N+1; transacciones en operaciones que modifican varias tablas.
 - `.env`, la base SQLite local y los logs están fuera de git.
 - **Auditoría del asistente sin referencia al usuario:** `mnt_funcion_log_agent` no guarda quién escribió cada mensaje ni clave alguna hacia las conversaciones; los errores se guardan saneados (sin API key ni rutas). El Benchmark expone los mensajes de los operarios (sin su identidad) y el prompt del sistema, por eso `asistente/benchmark/*` está protegido por el módulo opcional `benchmark` (solo superAdmin, o un rol al que se le otorgue; ver [5.11](#511-roles-permisos-y-usuarios)).
-- **Conversaciones del asistente ligadas al usuario:** `mnt_conversaciones_asistente` y `mnt_mensajes_asistente` sí guardan el texto completo de cada conversación y a quién pertenece. Todo acceso se valida contra el usuario autenticado (un UUID ajeno responde 404, igual que uno inexistente) y el Benchmark no las lee. Nada se borra: quitar una conversación del historial solo cambia su estado.
+- **Conversaciones del asistente ligadas al usuario:** `mnt_conversaciones_asistente` y `mnt_mensajes_asistente` sí guardan el texto completo de cada conversación y a quién pertenece. Todo acceso se valida contra el usuario autenticado (un UUID ajeno responde 404, igual que uno inexistente) y el Benchmark no las lee. Nada se borra de verdad: eliminar una conversación del historial solo cambia su estado.
 
 ---
 
