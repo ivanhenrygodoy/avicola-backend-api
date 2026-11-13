@@ -10,7 +10,7 @@ API REST de la **Granja Avícola Inteligente**: administra instalaciones, invent
 2. [Arquitectura y estructura](#2-arquitectura-y-estructura)
 3. [Convenciones de base de datos](#3-convenciones-de-base-de-datos)
 4. [Formato estándar de respuestas](#4-formato-estándar-de-respuestas)
-5. [Módulos](#5-módulos)
+5. [Módulos](#5-módulos) (incluye [roles, permisos y usuarios](#511-roles-permisos-y-usuarios))
 6. [Principios SOLID aplicados](#6-principios-solid-aplicados)
 7. [Seguridad](#7-seguridad)
 8. [Pruebas](#8-pruebas)
@@ -42,6 +42,26 @@ docker compose exec api php artisan db:seed --force
 ### Variables de entorno
 
 Copia `.env.example` a `.env`. Las claves relevantes son `APP_URL`, `DB_*` y `AVICOLA_TIMEZONE` (opcional, por defecto `America/El_Salvador`, ver [zona horaria](#zona-horaria-de-negocio)).
+
+Para el **correo de credenciales** de los usuarios nuevos (ver [5.11](#511-roles-permisos-y-usuarios)) el servidor SMTP lo defines tú; el código solo usa la configuración estándar de Laravel:
+
+| Variable | Para qué sirve |
+|---|---|
+| `MAIL_MAILER` | `smtp` para enviar de verdad. Con `log` o `array` **no se envía nada** (la contraseña acabaría en un archivo de log): el usuario se crea y queda con credenciales «fallidas» |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Datos de tu servidor SMTP |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Remitente del correo |
+| `FRONTEND_URL` | Enlace «Ingresar al sistema» del correo (por defecto `http://localhost:5173`) |
+| `QUEUE_CONNECTION` | `database` (ya configurado): el correo sale por una cola |
+
+**Worker de la cola.** El correo no sale en la petición: un job lo envía por debajo. El servicio `queue` de `docker-compose.yml` ejecuta `php artisan queue:work --tries=3`:
+
+```bash
+docker compose up -d queue          # arranca el worker
+docker compose logs -f queue        # ver qué procesa
+docker compose restart queue        # OBLIGATORIO tras cambiar un job, el correo o el .env: el worker no recarga código
+```
+
+Para probar en local sin un SMTP real sirve Mailpit (`MAIL_HOST` hacia su puerto `1025`; interfaz web en su puerto `8025`).
 
 ### Datos de desarrollo
 
@@ -137,7 +157,11 @@ Todas las rutas requieren `auth:sanctum`, salvo `POST /auth/login`.
 |---|---|---|
 | POST | `/auth/login` | Valida credenciales y emite un token Bearer |
 | POST | `/auth/logout` | Elimina el token actual |
-| GET | `/auth/me` | Datos del usuario autenticado |
+| GET | `/auth/me` | Datos del usuario autenticado, con su `rol`, el árbol de `modulos` del menú, la lista plana `permisos` y `debe_cambiar_password` |
+| POST | `/auth/password` | Cambia la contraseña propia (exige la actual); revoca **todos** los tokens, incluido el actual |
+| POST | `/auth/password/mantener` | «Mantener esta contraseña»: apaga el aviso de primer ingreso sin cambiar ningún secreto |
+
+Un usuario desactivado no puede iniciar sesión; el mensaje «Tu cuenta está desactivada» solo se muestra si la contraseña es correcta, para no revelar qué correos existen.
 
 `LoginRequest` limita a **5 intentos por minuto** por clave de acceso (`RateLimiter`); un intento fallido suma al contador y uno correcto lo limpia. Las contraseñas se almacenan con hash.
 
@@ -336,6 +360,42 @@ La conversación con AviaCore sobrevive a recargar la página y el usuario puede
 
 ---
 
+### 5.11 Roles, permisos y usuarios
+
+El acceso es **por módulo** (sí o no) y lo hace cumplir el servidor: sin permiso la API responde `403 {"success":false,"message":"No tienes permiso para acceder a este módulo."}`. Ocultar la opción en el menú es solo comodidad.
+
+**Tablas** (`mnt_`): `mnt_roles`, `mnt_modulos` (con jerarquía padre/hijo: «Asistente IA» > «Benchmark»), `mnt_rol_modulo` (permisos) y, en `mnt_usuarios`, `id_rol`, `activo`, `debe_cambiar_password`, `credenciales_estado` y `credenciales_error`. `RolesYModulosSeeder` es idempotente y lo ejecuta la migración de datos, que además asigna `super_admin` a los usuarios existentes.
+
+**Matriz inicial**
+
+| Módulo (`clave`) | `super_admin` | `operario` | Tipo |
+|---|:-:|:-:|---|
+| `dashboard`, `instalaciones`, `aves`, `produccion`, `gastos`, `asistente` (chat) | Sí | Sí, fijo | **Base**: el operario siempre los conserva |
+| `benchmark` (bajo «Asistente IA») | Sí | No, **otorgable** | **Opcional**: el único que el superAdmin puede dar o quitar |
+| `usuarios`, `permisos` | Sí | Nunca | **Solo superAdmin** |
+
+El `super_admin` accede a todo **por regla** (`es_super`), no por filas: un módulo nuevo nunca lo deja fuera. Un `id_rol` nulo o un usuario desactivado no accede a nada (nunca se interpreta como superAdmin).
+
+**Protección de rutas.** El middleware `modulo:<clave>` (`EnsureModuloPermitido`) envuelve cada grupo de rutas: `dashboard/*` → `dashboard`; `granjas`, `casitas`, `divisiones` → `instalaciones`; `aves`, `pesos`, `observaciones` → `aves`; `alimentacion`, `huevos` → `produccion`; `gastos` → `gastos`; `asistente/chat` y `asistente/conversaciones*` → `asistente`; `asistente/benchmark/*` → `benchmark`. Los **catálogos compartidos** (`catalogos/*`, `aves/catalogos|especies|sexos|propositos`, `alimentos/tipos`, `gastos/categorias`, `instalaciones/tipos`, `casitas/tipos`) exigen solo autenticación porque los usan varios módulos.
+
+| Método | Ruta | Módulo | Descripción |
+|---|---|---|---|
+| GET | `/permisos` | `permisos` | Matriz rol × módulo |
+| PUT | `/permisos/{rol}` | `permisos` | Recibe `modulos: [clave]` con los **opcionales** a otorgar; los base se conservan siempre y un `solo_super` da 422. El rol super no se edita |
+| GET / POST | `/usuarios` | `usuarios` | Lista (rol, estado, credenciales) / crea (`name`, `email`, `id_rol`) |
+| PATCH | `/usuarios/{id}` | `usuarios` | Cambia `id_rol` y/o `activo` |
+| POST | `/usuarios/{id}/reenviar-credenciales` | `usuarios` | Genera otra temporal y la envía |
+
+**Reglas de protección.** No se puede desactivar ni degradar al **único superAdmin activo**; nadie se desactiva ni se cambia el rol a sí mismo; no se reenvían credenciales a uno mismo ni a un desactivado. Cambiar el rol o desactivar a un usuario **revoca sus tokens**. Cambiar los módulos de un rol no revoca tokens: el servidor lo aplica en la siguiente petición y el frontend lo recoge solo (ver el README del frontend).
+
+**Alta de usuario y correo por cola.** `POST /usuarios` crea la cuenta con una clave aleatoria que nadie conoce, `debe_cambiar_password = true` y `credenciales_estado = 'pendiente'`, y encola `EnviarCredencialesIniciales` con **solo el `id_usuario`**. El job —no la petición— genera la temporal (`Str::password(12, symbols: false)`), la guarda **solo hasheada**, envía el correo y marca `enviado`. Así la contraseña en claro nunca queda en `jobs.payload`, en `failed_jobs`, en la respuesta de la API ni en un log. Si el mailer es `log`/`array` o el SMTP falla tras 3 intentos, el estado queda `fallido` (con un motivo corto, sin contraseña) y el superAdmin usa «Reenviar credenciales».
+
+**Primer ingreso.** Con `debe_cambiar_password` verdadero el frontend ofrece **cambiar** la contraseña (se cierran todas las sesiones) o **mantener** la temporal. El aviso es suave: si se cierra sin elegir, reaparece en el siguiente inicio de sesión. Ninguna ruta de la API se restringe por esa bandera.
+
+Cómo asignar permisos: el superAdmin entra a **Permisos** (matriz rol × módulo) y activa o desactiva el interruptor de Benchmark para el operario; los módulos base aparecen bloqueados.
+
+---
+
 ## 6. Principios SOLID aplicados
 
 | Principio | Cómo se aplica aquí |
@@ -351,11 +411,12 @@ La conversación con AviaCore sobrevive a recargar la página y el usuario puede
 ## 7. Seguridad
 
 - Tokens Bearer con **Sanctum**; `logout` revoca el token en base de datos.
+- **Autorización por módulo en el servidor** (`modulo:<clave>`, 403), usuarios desactivables y contraseñas temporales que nunca se guardan ni viajan en claro (ver [5.11](#511-roles-permisos-y-usuarios)).
 - **Rate limiting** de 5 intentos por minuto en el login.
 - **CORS restrictivo** (`config/cors.php`): solo `http://localhost:5173` y `http://127.0.0.1:5173`. Cualquier otro origen del frontend debe añadirse ahí.
 - Validación de toda entrada con `FormRequest`; eager loading (`with(...)`) para evitar consultas N+1; transacciones en operaciones que modifican varias tablas.
 - `.env`, la base SQLite local y los logs están fuera de git.
-- **Auditoría del asistente sin referencia al usuario:** `mnt_funcion_log_agent` no guarda quién escribió cada mensaje ni clave alguna hacia las conversaciones; los errores se guardan saneados (sin API key ni rutas). El acceso al Benchmark es para cualquier usuario autenticado y expone los mensajes de los operarios (sin su identidad) y el prompt del sistema: si se crean roles, restringe `asistente/benchmark/*`.
+- **Auditoría del asistente sin referencia al usuario:** `mnt_funcion_log_agent` no guarda quién escribió cada mensaje ni clave alguna hacia las conversaciones; los errores se guardan saneados (sin API key ni rutas). El Benchmark expone los mensajes de los operarios (sin su identidad) y el prompt del sistema, por eso `asistente/benchmark/*` está protegido por el módulo opcional `benchmark` (solo superAdmin, o un rol al que se le otorgue; ver [5.11](#511-roles-permisos-y-usuarios)).
 - **Conversaciones del asistente ligadas al usuario:** `mnt_conversaciones_asistente` y `mnt_mensajes_asistente` sí guardan el texto completo de cada conversación y a quién pertenece. Todo acceso se valida contra el usuario autenticado (un UUID ajeno responde 404, igual que uno inexistente) y el Benchmark no las lee. Nada se borra: quitar una conversación del historial solo cambia su estado.
 
 ---
