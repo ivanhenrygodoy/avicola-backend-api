@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
+use App\Services\Acceso\PermisosService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly PermisosService $permisos) {}
+
     /**
      * Iniciar sesión y emitir token Bearer.
      */
@@ -29,6 +32,16 @@ class AuthController extends Controller
             ]);
         }
 
+        // Solo se revela que la cuenta está desactivada cuando la contraseña es correcta,
+        // para no filtrar qué correos existen.
+        if (! $user->activo) {
+            $request->hitRateLimiter();
+
+            throw ValidationException::withMessages([
+                'email' => ['Tu cuenta está desactivada. Contacta al administrador.'],
+            ]);
+        }
+
         $request->clearRateLimiter();
 
         // Eliminar tokens previos si se desea sesión única o permitir múltiples
@@ -39,11 +52,7 @@ class AuthController extends Controller
             'message' => 'Inicio de sesión exitoso.',
             'data' => [
                 'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ],
+                'user' => $this->permisos->datosDeSesion($user),
             ],
         ]);
     }
@@ -70,12 +79,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
+            'data' => $this->permisos->datosDeSesion($user),
         ]);
     }
 }
-
