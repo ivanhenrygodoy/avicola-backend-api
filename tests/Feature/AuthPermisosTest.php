@@ -70,7 +70,7 @@ class AuthPermisosTest extends TestCase
 
         // El árbol viene ordenado como el menú actual.
         $this->assertSame(
-            ['dashboard', 'instalaciones', 'aves', 'produccion', 'gastos', 'asistente', 'usuarios', 'permisos'],
+            ['dashboard', 'instalaciones', 'aves', 'produccion', 'gastos', 'asistente', 'usuarios', 'permisos', 'apariencia'],
             $arbol->pluck('clave')->all()
         );
         $this->assertTrue($arbol->firstWhere('clave', 'dashboard')['exacto']);
