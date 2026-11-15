@@ -81,6 +81,7 @@ class PermisosService
             'modulos' => $this->arbolPara($usuario),
             'permisos' => $this->clavesPermitidas($usuario),
             'debe_cambiar_password' => (bool) $usuario->debe_cambiar_password,
+            'modo_tema' => $usuario->modo_tema ?: 'claro',
         ];
     }
 

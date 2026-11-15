@@ -33,6 +33,7 @@ class RolesYModulosSeeder extends Seeder
             ['clave' => 'asistente', 'nombre' => 'Asistente IA', 'ruta' => null, 'icono' => 'Bot', 'orden' => 6, 'base' => true],
             ['clave' => 'usuarios', 'nombre' => 'Usuarios', 'ruta' => '/usuarios', 'icono' => 'Users', 'orden' => 7, 'solo_super' => true],
             ['clave' => 'permisos', 'nombre' => 'Permisos', 'ruta' => '/permisos', 'icono' => 'ShieldCheck', 'orden' => 8, 'solo_super' => true],
+            ['clave' => 'apariencia', 'nombre' => 'Apariencia', 'ruta' => '/apariencia', 'icono' => 'Palette', 'orden' => 9, 'solo_super' => true],
         ];
 
         foreach ($modulos as $datos) {

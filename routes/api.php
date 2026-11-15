@@ -17,10 +17,15 @@ use App\Http\Controllers\Api\V1\ObservacionAveController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PermisoController;
 use App\Http\Controllers\Api\V1\PesoAveController;
+use App\Http\Controllers\Api\V1\TemaAdminController;
+use App\Http\Controllers\Api\V1\TemaPublicoController;
 use App\Http\Controllers\Api\V1\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    // Paleta activa del sistema (pública para aplicar tema desde el Login)
+    Route::get('tema/activo', [TemaPublicoController::class, 'activo']);
+
     // Rutas públicas de autenticación
     Route::prefix('auth')->group(function () {
         Route::post('login', [AuthController::class, 'login']);
@@ -31,6 +36,7 @@ Route::prefix('v1')->group(function () {
             Route::get('me', [AuthController::class, 'me']);
             Route::post('password', [PasswordController::class, 'cambiar']);
             Route::post('password/mantener', [PasswordController::class, 'mantener']);
+            Route::patch('preferencia-tema', [TemaPublicoController::class, 'actualizarPreferencia']);
         });
     });
 
@@ -121,6 +127,15 @@ Route::prefix('v1')->group(function () {
         Route::middleware('modulo:permisos')->group(function () {
             Route::get('permisos', [PermisoController::class, 'index']);
             Route::put('permisos/{rol}', [PermisoController::class, 'update']);
+        });
+
+        // Módulo de Apariencia y Paleta Dinámica (solo superAdmin)
+        Route::middleware('modulo:apariencia')->prefix('apariencia')->group(function () {
+            Route::get('componentes', [TemaAdminController::class, 'index']);
+            Route::post('restaurar-todo', [TemaAdminController::class, 'restaurarTodo']);
+            Route::get('componentes/{componente:clave}', [TemaAdminController::class, 'show']);
+            Route::put('componentes/{componente:clave}', [TemaAdminController::class, 'update']);
+            Route::post('componentes/{componente:clave}/restaurar', [TemaAdminController::class, 'restaurar']);
         });
 
         // Benchmark AviaCore: auditoría de las interacciones del asistente

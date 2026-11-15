@@ -13,7 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
     'name', 'email', 'password', 'id_rol', 'activo', 'debe_cambiar_password',
-    'credenciales_estado', 'credenciales_error',
+    'modo_tema', 'credenciales_estado', 'credenciales_error',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable

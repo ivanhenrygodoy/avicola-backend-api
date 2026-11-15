@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RolesYModulosSeeder::class);
+        $this->call(TemaDefaultSeeder::class);
 
         $admin = User::firstOrCreate(
             ['email' => 'admin@granja.local'],
