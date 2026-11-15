@@ -372,7 +372,7 @@ El acceso es **por módulo** (sí o no) y lo hace cumplir el servidor: sin permi
 |---|:-:|:-:|---|
 | `dashboard`, `instalaciones`, `aves`, `produccion`, `gastos`, `asistente` (chat) | Sí | Sí, fijo | **Base**: el operario siempre los conserva |
 | `benchmark` (bajo «Asistente IA») | Sí | No, **otorgable** | **Opcional**: el único que el superAdmin puede dar o quitar |
-| `usuarios`, `permisos` | Sí | Nunca | **Solo superAdmin** |
+| `usuarios`, `permisos`, `apariencia` | Sí | Nunca | **Solo superAdmin** |
 
 El `super_admin` accede a todo **por regla** (`es_super`), no por filas: un módulo nuevo nunca lo deja fuera. Un `id_rol` nulo o un usuario desactivado no accede a nada (nunca se interpreta como superAdmin).
 
@@ -393,6 +393,24 @@ El `super_admin` accede a todo **por regla** (`es_super`), no por filas: un mód
 **Primer ingreso.** Con `debe_cambiar_password` verdadero el frontend ofrece **cambiar** la contraseña (se cierran todas las sesiones) o **mantener** la temporal. El aviso es suave: si se cierra sin elegir, reaparece en el siguiente inicio de sesión. Ninguna ruta de la API se restringe por esa bandera.
 
 Cómo asignar permisos: el superAdmin entra a **Permisos** (matriz rol × módulo) y activa o desactiva el interruptor de Benchmark para el operario; los módulos base aparecen bloqueados.
+
+---
+
+### 5.12 Apariencia dinámica y Modo Nocturno
+
+Administra la paleta visual del sistema (botones, formularios, cajas de texto/filtros, contornos/ribetes, sombras, tarjetas, navegación, fondos y badges/alertas) en dos modos (`claro` y `nocturno`), precargando los valores oficiales de `DESIGN.md` mediante `TemaDefaultSeeder` (idempotente).
+
+- **Tablas:**
+  - `ctl_componentes_tema`: catálogo de los 9 grupos configurables (`botones`, `formularios`, `filtros`, `ribetes_contornos`, `sombras`, `tarjetas`, `navegacion`, `fondos`, `badges`).
+  - `mnt_configuracion_tema`: aspectos por componente y modo (`id_componente_tema` con `restrictOnDelete()`, índice único `['id_componente_tema', 'modo', 'aspecto']`, `variable_css`, `tipo_control`, `valor_actual`, `valor_defecto`).
+  - `mnt_usuarios.modo_tema`: preferencia personal (`claro` | `nocturno`, devuelta en `/auth/login` y `/auth/me`).
+- **Endpoints (`/api/v1/`):**
+  - `GET /tema/activo`: mapa público `{ claro: { '--avicola-...': '...' }, nocturno: { ... } }`.
+  - `PATCH /auth/preferencia-tema` (`auth:sanctum`): guarda la preferencia personal del usuario autenticado (`UpdatePreferenciaTemaRequest`).
+  - Bajo `middleware(['auth:sanctum', 'modulo:apariencia'])` (solo `super_admin`):
+    - `GET /apariencia/componentes` y `GET /apariencia/componentes/{componente}`
+    - `PUT /apariencia/componentes/{componente}` (validado con `UpdateComponenteTemaRequest` y ejecutado dentro de `DB::transaction()` vía `TemaService`)
+    - `POST /apariencia/componentes/{componente}/restaurar` y `POST /apariencia/restaurar-todo`
 
 ---
 
