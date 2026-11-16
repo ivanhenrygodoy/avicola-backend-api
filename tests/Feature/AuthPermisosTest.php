@@ -65,12 +65,13 @@ class AuthPermisosTest extends TestCase
         $this->assertNotNull($grupo);
         $this->assertSame('Asistente IA', $grupo['nombre']);
         $this->assertNull($grupo['ruta']);
-        $this->assertSame(['benchmark'], array_column($grupo['hijos'], 'clave'));
+        $this->assertSame(['benchmark', 'fuentes_conocimiento'], array_column($grupo['hijos'], 'clave'));
         $this->assertSame('/benchmark', $grupo['hijos'][0]['ruta']);
+        $this->assertSame('/asistente/fuentes', $grupo['hijos'][1]['ruta']);
 
         // El árbol viene ordenado como el menú actual.
         $this->assertSame(
-            ['dashboard', 'instalaciones', 'aves', 'produccion', 'gastos', 'asistente', 'usuarios', 'permisos'],
+            ['dashboard', 'instalaciones', 'aves', 'produccion', 'gastos', 'asistente', 'usuarios', 'permisos', 'apariencia'],
             $arbol->pluck('clave')->all()
         );
         $this->assertTrue($arbol->firstWhere('clave', 'dashboard')['exacto']);

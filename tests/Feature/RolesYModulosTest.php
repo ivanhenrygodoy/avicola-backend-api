@@ -19,7 +19,7 @@ class RolesYModulosTest extends TestCase
         $this->seed(RolesYModulosSeeder::class);
 
         $this->assertSame(2, Rol::count());
-        $this->assertSame(9, Modulo::count());
+        $this->assertSame(10, Modulo::count());
         $this->assertSame(1, Modulo::where('clave', 'benchmark')->count());
     }
 
@@ -84,7 +84,7 @@ class RolesYModulosTest extends TestCase
             ['dashboard', 'instalaciones', 'aves', 'produccion', 'gastos', 'asistente'],
             $base
         );
-        $this->assertEqualsCanonicalizing(['usuarios', 'permisos'], $soloSuper);
+        $this->assertEqualsCanonicalizing(['usuarios', 'permisos', 'apariencia'], $soloSuper);
         $this->assertSame('asistente', Modulo::where('clave', 'benchmark')->firstOrFail()->padre->clave);
     }
 

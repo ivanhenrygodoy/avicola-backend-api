@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepuracionLogsAgenteController;
 use App\Http\Controllers\Api\V1\DivisionController;
+use App\Http\Controllers\Api\V1\FuenteConocimientoController;
 use App\Http\Controllers\Api\V1\GastoController;
 use App\Http\Controllers\Api\V1\GranjaController;
 use App\Http\Controllers\Api\V1\HuevoController;
@@ -17,10 +18,15 @@ use App\Http\Controllers\Api\V1\ObservacionAveController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PermisoController;
 use App\Http\Controllers\Api\V1\PesoAveController;
+use App\Http\Controllers\Api\V1\TemaAdminController;
+use App\Http\Controllers\Api\V1\TemaPublicoController;
 use App\Http\Controllers\Api\V1\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    // Paleta activa del sistema (pública para aplicar tema desde el Login)
+    Route::get('tema/activo', [TemaPublicoController::class, 'activo']);
+
     // Rutas públicas de autenticación
     Route::prefix('auth')->group(function () {
         Route::post('login', [AuthController::class, 'login']);
@@ -31,6 +37,7 @@ Route::prefix('v1')->group(function () {
             Route::get('me', [AuthController::class, 'me']);
             Route::post('password', [PasswordController::class, 'cambiar']);
             Route::post('password/mantener', [PasswordController::class, 'mantener']);
+            Route::patch('preferencia-tema', [TemaPublicoController::class, 'actualizarPreferencia']);
         });
     });
 
@@ -123,6 +130,15 @@ Route::prefix('v1')->group(function () {
             Route::put('permisos/{rol}', [PermisoController::class, 'update']);
         });
 
+        // Módulo de Apariencia y Paleta Dinámica (solo superAdmin)
+        Route::middleware('modulo:apariencia')->prefix('apariencia')->group(function () {
+            Route::get('componentes', [TemaAdminController::class, 'index']);
+            Route::post('restaurar-todo', [TemaAdminController::class, 'restaurarTodo']);
+            Route::get('componentes/{componente:clave}', [TemaAdminController::class, 'show']);
+            Route::put('componentes/{componente:clave}', [TemaAdminController::class, 'update']);
+            Route::post('componentes/{componente:clave}/restaurar', [TemaAdminController::class, 'restaurar']);
+        });
+
         // Benchmark AviaCore: auditoría de las interacciones del asistente
         Route::middleware('modulo:benchmark')->prefix('asistente/benchmark')->group(function () {
             Route::get('estadisticas', [AsistenteBenchmarkController::class, 'estadisticas']);
@@ -130,6 +146,17 @@ Route::prefix('v1')->group(function () {
             Route::get('logs/{log}', [AsistenteBenchmarkController::class, 'show']);
             Route::get('depuracion', [DepuracionLogsAgenteController::class, 'vistaPrevia']);
             Route::delete('depuracion', [DepuracionLogsAgenteController::class, 'destroy']);
+        });
+
+        // Fuentes de Conocimiento RAG (solo superAdmin)
+        Route::middleware('modulo:fuentes_conocimiento')->prefix('asistente/fuentes')->group(function () {
+            Route::get('/', [FuenteConocimientoController::class, 'index']);
+            Route::post('/', [FuenteConocimientoController::class, 'store']);
+            Route::get('{id}', [FuenteConocimientoController::class, 'show'])->whereNumber('id');
+            Route::put('{id}', [FuenteConocimientoController::class, 'update'])->whereNumber('id');
+            Route::post('{id}/procesar', [FuenteConocimientoController::class, 'procesar'])->whereNumber('id');
+            Route::patch('{id}/alternar-estado', [FuenteConocimientoController::class, 'alternarEstado'])->whereNumber('id');
+            Route::get('{id}/descargar', [FuenteConocimientoController::class, 'descargar'])->whereNumber('id');
         });
     });
 });
