@@ -1,5 +1,7 @@
 # SDD: Módulo de Apariencia y Modo Nocturno — Administración Dinámica de Paleta
 
+**Estado:** Finalizado con éxito
+
 > **Estado:** Implementado y verificado.
 
 **Goal:** Crear el módulo **Apariencia** (`/apariencia`) para administrar dinámicamente toda la paleta del sistema (botones, formularios, cajas de texto, filtros, ribetes, contornos, sombras, tarjetas, navegación, fondos y badges) precargando los valores actuales de `DESIGN.md`, e incorporar la **Sección de Nocturnidad** mediante un switch píldora en la barra principal (`AppHeader.vue`) que adecúe toda la paleta al modo nocturno orgánico.
