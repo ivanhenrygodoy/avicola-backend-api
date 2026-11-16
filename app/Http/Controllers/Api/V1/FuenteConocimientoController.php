@@ -76,7 +76,7 @@ class FuenteConocimientoController extends Controller
             );
 
             $mensaje = ($accion === 'procesar')
-                ? 'Fuente de conocimiento registrada, troceada y vectorizada con éxito.'
+                ? 'Fuente de conocimiento registrada, fragmentada y vectorizada con éxito.'
                 : 'Fuente de conocimiento guardada en borrador correctamente.';
 
             return response()->json([
