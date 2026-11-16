@@ -63,7 +63,9 @@ class VectorStoreService
 
         $query = DB::table('mnt_documentos_fragmentos as f')
             ->join('ctl_documentos_tecnicos as d', 'd.id', '=', 'f.id_documento_tecnico')
+            ->join('ctl_estado_fuente_conocimiento as est', 'est.id', '=', 'd.id_estado')
             ->where('d.activo', true)
+            ->where('est.clave', 'publicada')
             ->select([
                 'f.id',
                 'f.id_documento_tecnico',
@@ -113,7 +115,9 @@ class VectorStoreService
     {
         $query = DB::table('mnt_documentos_fragmentos as f')
             ->join('ctl_documentos_tecnicos as d', 'd.id', '=', 'f.id_documento_tecnico')
+            ->join('ctl_estado_fuente_conocimiento as est', 'est.id', '=', 'd.id_estado')
             ->where('d.activo', true)
+            ->where('est.clave', 'publicada')
             ->select([
                 'f.id',
                 'f.id_documento_tecnico',

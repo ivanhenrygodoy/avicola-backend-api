@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\CasitaController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DepuracionLogsAgenteController;
 use App\Http\Controllers\Api\V1\DivisionController;
+use App\Http\Controllers\Api\V1\FuenteConocimientoController;
 use App\Http\Controllers\Api\V1\GastoController;
 use App\Http\Controllers\Api\V1\GranjaController;
 use App\Http\Controllers\Api\V1\HuevoController;
@@ -145,6 +146,17 @@ Route::prefix('v1')->group(function () {
             Route::get('logs/{log}', [AsistenteBenchmarkController::class, 'show']);
             Route::get('depuracion', [DepuracionLogsAgenteController::class, 'vistaPrevia']);
             Route::delete('depuracion', [DepuracionLogsAgenteController::class, 'destroy']);
+        });
+
+        // Fuentes de Conocimiento RAG (solo superAdmin)
+        Route::middleware('modulo:fuentes_conocimiento')->prefix('asistente/fuentes')->group(function () {
+            Route::get('/', [FuenteConocimientoController::class, 'index']);
+            Route::post('/', [FuenteConocimientoController::class, 'store']);
+            Route::get('{id}', [FuenteConocimientoController::class, 'show'])->whereNumber('id');
+            Route::put('{id}', [FuenteConocimientoController::class, 'update'])->whereNumber('id');
+            Route::post('{id}/procesar', [FuenteConocimientoController::class, 'procesar'])->whereNumber('id');
+            Route::patch('{id}/alternar-estado', [FuenteConocimientoController::class, 'alternarEstado'])->whereNumber('id');
+            Route::get('{id}/descargar', [FuenteConocimientoController::class, 'descargar'])->whereNumber('id');
         });
     });
 });

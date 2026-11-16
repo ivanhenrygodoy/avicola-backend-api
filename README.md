@@ -484,6 +484,7 @@ Este proyecto cuenta con *skills* (guías para asistentes de IA) y documentos qu
 | Skill `impeccable` | `Proyects-IA/.agents/skills/impeccable/` | Guía de calidad de diseño de interfaz |
 | `docs/DESIGN_SYSTEM_BACKEND.md` | este repo | Resumen de estándares de arquitectura |
 | `docs/aviacore-arquitectura-harness.md` | este repo (sección 10) | Guardrails y Benchmark AviaCore |
+| `docs/plans/2026-11-16-fuentes-conocimiento-rag.md` | este repo | Plan SDD del módulo Fuentes de Conocimiento RAG (`/api/v1/asistente/fuentes`, `ctl_estado_fuente_conocimiento`, `FuenteConocimientoController`) |
 | `Proyects-IA/docs/superpowers/specs/` y `plans/` | repo raíz | Diseño y plan de implementación del Benchmark y los guardrails, y plan de depuración de logs |
 | `AGENTS.md` / `CLAUDE.md` | este repo | Instrucciones para asistentes (Laravel Boost) |
 

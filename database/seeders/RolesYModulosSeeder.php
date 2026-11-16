@@ -59,6 +59,21 @@ class RolesYModulosSeeder extends Seeder
             ]
         );
 
+        Modulo::updateOrCreate(
+            ['clave' => 'fuentes_conocimiento'],
+            [
+                'id_modulo_padre' => $asistente->id,
+                'nombre' => 'Fuentes de Conocimiento',
+                'ruta' => '/asistente/fuentes',
+                'icono' => 'BookOpen',
+                'orden' => 2,
+                'exacto' => false,
+                'activo' => true,
+                'solo_super' => true,
+                'base' => false,
+            ]
+        );
+
         $operario->modulos()->syncWithoutDetaching(
             Modulo::where('base', true)->pluck('id')->all()
         );
