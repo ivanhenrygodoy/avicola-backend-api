@@ -39,7 +39,7 @@ class TemaAdminController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Apariencia de «{$componente->nombre}» actualizada correctamente.",
+            'message' => "Apariencia de {$componente->nombre} actualizada correctamente.",
             'data' => $actualizado,
         ]);
     }
@@ -55,7 +55,7 @@ class TemaAdminController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Valores por defecto de «{$componente->nombre}» restaurados.",
+            'message' => "Valores predeterminados de {$componente->nombre} restaurados.",
             'data' => $restaurado,
         ]);
     }
@@ -66,7 +66,7 @@ class TemaAdminController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Toda la paleta del sistema fue restaurada a los valores originales.',
+            'message' => 'Toda la paleta del sistema fue restaurada a los valores predeterminados.',
             'data' => $this->temaService->listarComponentes(),
         ]);
     }
