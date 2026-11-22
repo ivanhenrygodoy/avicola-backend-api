@@ -18,11 +18,23 @@ class DatabaseSeeder extends Seeder
         $this->call(TemaDefaultSeeder::class);
         $this->call(EstadoFuenteConocimientoSeeder::class);
 
+        $adminEmail = config('avicola.admin_default_email', env('ADMIN_DEFAULT_EMAIL', 'admin@granja.local'));
+        $adminPassword = config('avicola.admin_default_password', env('ADMIN_DEFAULT_PASSWORD'));
+        $adminName = config('avicola.admin_default_name', env('ADMIN_DEFAULT_NAME', 'Administrador de Granja'));
+
+        if (empty($adminPassword)) {
+            throw new \RuntimeException(
+                'Seguridad: La variable ADMIN_DEFAULT_PASSWORD no está configurada en .env. ' .
+                'Por seguridad no se permiten contraseñas por defecto en el código fuente. ' .
+                'Por favor define ADMIN_DEFAULT_PASSWORD en tu archivo .env antes de ejecutar este seeder.'
+            );
+        }
+
         $admin = User::firstOrCreate(
-            ['email' => 'admin@granja.local'],
+            ['email' => $adminEmail],
             [
-                'name' => 'Administrador de Granja',
-                'password' => Hash::make('password123'),
+                'name' => $adminName,
+                'password' => Hash::make($adminPassword),
             ]
         );
 
