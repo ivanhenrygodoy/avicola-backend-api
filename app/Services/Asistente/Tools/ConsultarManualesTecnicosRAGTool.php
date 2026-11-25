@@ -67,29 +67,30 @@ class ConsultarManualesTecnicosRAGTool implements AsistenteToolInterface
         try {
             $vector = $this->geminiClient->generarEmbedding($consulta);
         } catch (Throwable) {
-            // Fallback determinista en entornos sin clave o testing
-            $hash = md5($consulta);
-            $vector = [];
-            for ($i = 0; $i < 768; $i++) {
-                $charIndex = $i % 32;
-                $vector[] = round((hexdec($hash[$charIndex]) - 8) / 10.0, 4);
-            }
+            // Si falla la API de embeddings, se omite el vector para que la rama léxica responda sin ruido
+            $vector = null;
         }
 
-        $fragmentos = $this->vectorStore->buscarSimilares($vector, limite: 3, especie: $especie);
+        $fragmentos = $this->vectorStore->buscarHibrido($consulta, $vector, limite: 3, especie: $especie);
 
         if (empty($fragmentos)) {
             return [
                 'total_fragmentos' => 0,
                 'encontrado' => false,
+                'estrategia_busqueda' => 'sin_resultados',
                 'mensaje' => 'No se encontraron fragmentos técnicos en los manuales oficiales de la granja para la consulta especificada.',
                 'orientacion_pedagogica' => 'Explica con calidez y pedagogía que los manuales técnicos oficiales de la granja (enfocados en Gallina Criolla, Chompipe y Pato Pichiche) no disponen de lineamientos específicos o comprobados para esta consulta o especie. Recomiéndale al operario consultar directamente con el médico veterinario o encargado zootécnico antes de tomar decisiones de manejo o convivencia, o invítale a formular su consulta sobre las temáticas y especies cubiertas.',
             ];
         }
 
+        $estrategia = $this->resolverEstrategia($fragmentos, $vector !== null);
+        $total = count($fragmentos);
+
         return [
-            'total_fragmentos' => count($fragmentos),
+            'total_fragmentos' => $total,
             'encontrado' => true,
+            'estrategia_busqueda' => $estrategia,
+            'mensaje' => $this->formatearMensajeEstrategia($total, $estrategia),
             'fragmentos' => array_map(function ($f) {
                 return [
                     'documento' => $f['documento_titulo'],
@@ -99,5 +100,39 @@ class ConsultarManualesTecnicosRAGTool implements AsistenteToolInterface
                 ];
             }, $fragmentos),
         ];
+    }
+
+    /**
+     * Determina qué motores aportaron los fragmentos finalmente seleccionados.
+     *
+     * @param  array<int, array<string, mixed>>  $fragmentos
+     */
+    private function resolverEstrategia(array $fragmentos, bool $conVector): string
+    {
+        if (! $conVector) {
+            return 'lexica';
+        }
+
+        $origenes = array_unique(array_map(
+            fn (array $f): string => (string) ($f['origen_recuperacion'] ?? 'vectorial'),
+            $fragmentos
+        ));
+
+        if (in_array('ambas', $origenes, true) || count($origenes) > 1) {
+            return 'hibrida';
+        }
+
+        return $origenes[0] === 'lexica' ? 'lexica' : 'vectorial';
+    }
+
+    private function formatearMensajeEstrategia(int $total, string $estrategia): string
+    {
+        $etiqueta = match ($estrategia) {
+            'hibrida' => 'búsqueda híbrida (vectorial + léxica)',
+            'lexica' => 'búsqueda léxica',
+            default => 'búsqueda vectorial',
+        };
+
+        return "Se recuperaron {$total} fragmentos mediante {$etiqueta}.";
     }
 }
