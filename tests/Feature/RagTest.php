@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\CtlDocumentoTecnico;
 use App\Services\Asistente\GeminiApiClient;
 use App\Services\Asistente\Rag\IngestaManualesService;
+use App\Services\Asistente\Rag\RrfFusionService;
 use App\Services\Asistente\Rag\VectorStoreService;
 use App\Services\Asistente\Tools\ConsultarManualesTecnicosRAGTool;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -162,5 +164,130 @@ class RagTest extends TestCase
         $this->assertFalse($resultado['encontrado']);
         $this->assertArrayHasKey('orientacion_pedagogica', $resultado);
         $this->assertStringContainsString('veterinario', $resultado['orientacion_pedagogica']);
+    }
+
+    public function test_rrf_fusion_service_combina_y_prioriza_fragmentos_en_ambos_rankings(): void
+    {
+        $rrf = app(RrfFusionService::class);
+
+        $vectoriales = [
+            ['id_fragmento' => 10, 'titulo_seccion' => 'Solo Vectorial 1', 'similitud' => 0.95],
+            ['id_fragmento' => 20, 'titulo_seccion' => 'En Ambas', 'similitud' => 0.85],
+        ];
+
+        $lexicos = [
+            ['id_fragmento' => 30, 'titulo_seccion' => 'Solo Léxico 1', 'score_lexico' => 5.0],
+            ['id_fragmento' => 20, 'titulo_seccion' => 'En Ambas', 'score_lexico' => 4.0],
+        ];
+
+        $resultado = $rrf->fusionar($vectoriales, $lexicos, limite: 3, k: 60);
+
+        $this->assertCount(3, $resultado);
+        $this->assertSame(20, $resultado[0]['id_fragmento']);
+        $this->assertSame('ambas', $resultado[0]['origen_recuperacion']);
+        $this->assertSame(2, $resultado[0]['rank_vectorial']);
+        $this->assertSame(2, $resultado[0]['rank_lexico']);
+    }
+
+    public function test_busqueda_hibrida_rescata_termino_exacto_y_respeta_filtros(): void
+    {
+        $idPublicada = DB::table('ctl_estado_fuente_conocimiento')->where('clave', 'publicada')->value('id');
+        $idBorrador = DB::table('ctl_estado_fuente_conocimiento')->where('clave', 'borrador')->value('id');
+
+        $docPublicado = CtlDocumentoTecnico::create([
+            'titulo' => 'Manual de Bioseguridad Gallina Criolla',
+            'especie' => 'Gallina',
+            'id_estado' => $idPublicada,
+            'activo' => true,
+        ]);
+
+        $docBorrador = CtlDocumentoTecnico::create([
+            'titulo' => 'Manual en Borrador',
+            'especie' => 'Gallina',
+            'id_estado' => $idBorrador,
+            'activo' => true,
+        ]);
+
+        $vectorStore = app(VectorStoreService::class);
+
+        // Fragmento 1: vector idéntico al query pero sin el código exacto
+        $vectorCercano = array_fill(0, 768, 0.5);
+        $vectorStore->guardarFragmento(
+            $docPublicado->id,
+            'Alojamiento General',
+            'Los corrales deben mantenerse ventilados y con cama seca.',
+            $vectorCercano
+        );
+
+        // Fragmento 2: vector ortogonal/lejano pero contiene el código exacto NDV-LaSota
+        $vectorLejano = array_fill(0, 768, -0.5);
+        $vectorStore->guardarFragmento(
+            $docPublicado->id,
+            'Protocolo Vacunal NDV-LaSota',
+            'Aplicar cepa NDV-LaSota vía ocular al día 7 y refuerzo al día 21.',
+            $vectorLejano
+        );
+
+        // Fragmento 3: en borrador, no debe aparecer aunque coincida en texto y vector
+        $vectorStore->guardarFragmento(
+            $docBorrador->id,
+            'Borrador NDV-LaSota',
+            'Contenido en borrador con NDV-LaSota.',
+            $vectorCercano
+        );
+
+        $resultados = $vectorStore->buscarHibrido('dosis cepa NDV-LaSota', $vectorCercano, limite: 3, especie: 'Gallina');
+
+        $this->assertCount(2, $resultados);
+        $titulos = array_column($resultados, 'titulo_seccion');
+        $this->assertContains('Protocolo Vacunal NDV-LaSota', $titulos);
+        $this->assertContains('Alojamiento General', $titulos);
+        $this->assertNotContains('Borrador NDV-LaSota', $titulos);
+    }
+
+    public function test_consultar_manuales_tecnicos_rag_tool_reporta_estrategia_hibrida_y_resiliente_sin_embedding(): void
+    {
+        $idPublicada = DB::table('ctl_estado_fuente_conocimiento')->where('clave', 'publicada')->value('id');
+
+        $doc = CtlDocumentoTecnico::create([
+            'titulo' => 'Manual Técnico de Gallinas',
+            'especie' => 'Gallina',
+            'id_estado' => $idPublicada,
+            'activo' => true,
+        ]);
+
+        $vectorStore = app(VectorStoreService::class);
+        $vectorStore->guardarFragmento(
+            $doc->id,
+            'Prevención Viruela Aviar',
+            'Vacunar contra viruela aviar en el pliegue del ala a las 6 semanas.',
+            array_fill(0, 768, 0.2)
+        );
+
+        // Caso 1: Embedding disponible -> estrategia híbrida; Caso 2: Falla API -> resiliente por rama léxica
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push(['embedding' => ['values' => array_fill(0, 768, 0.2)]], 200)
+                ->push(['error' => 'Service Unavailable'], 503),
+        ]);
+
+        $tool = app(ConsultarManualesTecnicosRAGTool::class);
+        $resHibrido = $tool->ejecutar([
+            'consulta' => 'vacuna viruela aviar',
+            'especie' => 'Gallina',
+        ], ['id_usuario' => 1]);
+
+        $this->assertTrue($resHibrido['encontrado']);
+        $this->assertSame('hibrida', $resHibrido['estrategia_busqueda']);
+        $this->assertStringContainsString('búsqueda híbrida', $resHibrido['mensaje']);
+
+        $resLexico = $tool->ejecutar([
+            'consulta' => 'viruela aviar',
+            'especie' => 'Gallina',
+        ], ['id_usuario' => 1]);
+
+        $this->assertTrue($resLexico['encontrado']);
+        $this->assertSame('lexica', $resLexico['estrategia_busqueda']);
+        $this->assertStringContainsString('búsqueda léxica', $resLexico['mensaje']);
     }
 }

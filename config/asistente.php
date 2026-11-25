@@ -24,4 +24,25 @@ return [
         // Largo máximo del nombre de una conversación.
         'nombre_max' => env('ASISTENTE_NOMBRE_MAX', 60),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Búsqueda híbrida RAG (Vectorial + Léxica con RRF)
+    |--------------------------------------------------------------------------
+    |
+    | Parámetros de fusión Reciprocal Rank Fusion (RRF) para combinar similitud
+    | semántica (pgvector) con coincidencia léxica (tsvector en PostgreSQL).
+    |
+    */
+    'rag' => [
+        // Constante de suavizado k en la fórmula RRF: peso / (k + rank).
+        'rrf_k' => (int) env('ASISTENTE_RAG_RRF_K', 60),
+
+        // Cantidad de candidatos que recupera cada rama antes de fusionar.
+        'candidatos_por_rama' => (int) env('ASISTENTE_RAG_CANDIDATOS', 15),
+
+        // Pesos relativos de cada rama en el puntaje RRF final.
+        'peso_vectorial' => (float) env('ASISTENTE_RAG_PESO_VECTORIAL', 1.0),
+        'peso_lexico' => (float) env('ASISTENTE_RAG_PESO_LEXICO', 1.0),
+    ],
 ];

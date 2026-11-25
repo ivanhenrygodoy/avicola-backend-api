@@ -243,22 +243,26 @@ Endpoint para consultas operativas en lenguaje natural sin riesgo de inyecciones
 - **Payloads compactos:** Las tools retornan métricas calculadas y muestras de hasta 5 registros para no saturar la ventana de tokens.
 - **Herramientas disponibles:** `consultar_inventario_aves`, `consultar_produccion_huevos`, `consultar_gastos_periodo`, `consultar_ubicacion_ave`, `consultar_raciones_alimento` y `consultar_manuales_tecnicos` (RAG, ver 5.8).
 
-### 5.8 Base de conocimiento RAG y Búsqueda Vectorial (`pgvector`)
+### 5.8 Base de conocimiento RAG y Búsqueda Híbrida (`pgvector` + `tsvector` + RRF)
 
 Subsistema de recuperación de información técnica zootécnica especializada para enriquecer las respuestas de AviaCore con literatura verificada sin alucinaciones:
 
-- **Infraestructura vectorial:** Extensión `vector` (`pgvector 0.8.7`) en PostgreSQL 16 con índice HNSW (`vector_cosine_ops`) para aceleración de búsqueda por similitud coseno (`<=>`).
+- **Infraestructura híbrida (Vectorial + Léxica):**
+  - **Vectorial:** Extensión `vector` (`pgvector 0.8.7`) en PostgreSQL 16 con índice HNSW (`vector_cosine_ops`) para similitud coseno (`<=>`).
+  - **Léxica (Full-Text Search):** Columna generada `tsv` (`tsvector` en español con ponderación `A` en `titulo_seccion` y `B` en `contenido`) e índice `GIN` (`idx_fragmentos_tsv_gin`) consultada con `plainto_tsquery` (operador `OR` entre lexemas) y `ts_rank`.
+  - **Fusión (`RrfFusionService`):** Combina ambos rankings mediante **Reciprocal Rank Fusion (RRF)** configurable en `config/asistente.php` (`rag.rrf_k`, `rag.candidatos_por_rama`, `rag.peso_vectorial`, `rag.peso_lexico`).
 - **Tablas relacionales:**
   - `ctl_documentos_tecnicos`: Catálogo de manuales con título, especie, versión, autor y estado activo.
-  - `mnt_documentos_fragmentos`: Párrafos técnicos (*chunks*) con metadatos JSON y vector numérico de 768 dimensiones (`vector(768)` en PostgreSQL / `text` en SQLite de testing).
+  - `mnt_documentos_fragmentos`: Párrafos técnicos (*chunks*) con metadatos JSON, vector numérico de 768 dimensiones (`vector(768)` en PostgreSQL / `text` en SQLite de testing) y columna generada `tsv` en PostgreSQL.
 - **Modelo de Embeddings:** Integración con Google Gemini (`gemini-embedding-001`) configurado con `outputDimensionality: 768` para compatibilidad geométrica exacta con la base de datos.
 - **Servicio Vector Store (`VectorStoreService`):**
-  - Búsqueda nativa con operador `<=>` y filtros opcionales por especie y estado activo en PostgreSQL.
-  - Fallback matemático transparente en PHP para SQLite que permite ejecutar la suite completa de pruebas en memoria sin dependencias externas.
+  - `buscarHibrido()` ejecuta ambas ramas en PostgreSQL y las fusiona con `RrfFusionService` filtrando documentos activos y en estado `publicada` (y `especie` opcional). Conserva `buscarSimilares()` por compatibilidad.
+  - Fallback matemático (distancia coseno) y léxico por tokens en PHP para SQLite `:memory:` en la suite de pruebas.
 - **Herramienta autorizada (`ConsultarManualesTecnicosRAGTool`):**
   - Implementa `AsistenteToolInterface` (`nombre`, `descripcion`, `esquema`, `ejecutar`).
   - Registrada dinámicamente en `AppServiceProvider::$ASISTENTE_TOOLS` (OCP).
-  - Recibe la duda del operador, genera su vector numérico y extrae los 3 fragmentos zootécnicos más afines.
+  - Si falla la generación de embedding, omite el vector para evitar ruido y responde de forma resiliente mediante la rama léxica.
+  - Reporta `estrategia_busqueda` (`hibrida`, `vectorial` o `lexica`) y un `mensaje` descriptivo que queda auditado en `mnt_funcion_log_agent_tools.resumen_resultado` para el Benchmark.
 - **Manuales técnicos precargados (`IngestaManualesService`):**
   1. *Manual Técnico de Crianza y Sanidad del Pato Pichiche (Dendrocygna autumnalis)*.
   2. *Guía Zootécnica para la Producción y Manejo de Pavos y Chompipes*.
